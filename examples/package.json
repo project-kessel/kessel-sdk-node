@@ -1,0 +1,15 @@
+{
+  "name": "kessel-sdk-examples",
+  "version": "1.0.0",
+  "scripts": {
+    "check": "tsx check.ts"
+  },
+  "author": "Josejulio Martínez",
+  "license": "Apache-2.0",
+  "description": "",
+  "dependencies": {
+    "kessel-sdk": "file://..",
+    "tsx": "^4.20.2"
+  },
+  "private": true
+}
