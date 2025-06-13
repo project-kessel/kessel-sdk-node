@@ -1,0 +1,10 @@
+version: v2
+inputs:
+  - module: buf.build/project-kessel/inventory-api
+  - module: buf.build/bufbuild/protovalidate
+plugins:
+  - remote: buf.build/bufbuild/es:v2.5.2
+    out: src
+    opt:
+      - target=ts
+    include_imports: true
