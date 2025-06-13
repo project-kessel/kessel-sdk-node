@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "moduleResolution": "node",
+    "module": "es2022",
+    "declaration": false,
+    "rootDir": "./",
+    "esModuleInterop": true,
+    "strict": true,
+    "paths": {
+      "kessel-sdk/*": ["../src/*"]
+    }
+  },
+  "include": ["./**/*.ts"],
+  "exclude": ["node_modules"]
+}

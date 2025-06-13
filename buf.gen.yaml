@@ -1,0 +1,15 @@
+version: v2
+inputs:
+  - module: buf.build/project-kessel/inventory-api
+  - module: buf.build/bufbuild/protovalidate
+plugins:
+  - remote: buf.build/community/stephenh-ts-proto:v1.167.1
+    out: src
+    opt:
+      - outputServices=nice-grpc
+      - outputServices=generic-definitions
+      - esModuleInterop=true
+      - env=node
+      - useOptionals=all
+      - outputExtensions=true
+    include_imports: true

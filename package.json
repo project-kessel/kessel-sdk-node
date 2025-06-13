@@ -1,0 +1,62 @@
+{
+  "name": "kessel-sdk",
+  "version": "0.1.0",
+  "description": "Client SDK for Kessel.",
+  "type": "module",
+  "exports": {
+    "require": "./cjs/*",
+    "import": "./esm/*"
+  },
+  "types": "./types/",
+  "scripts": {
+    "build": "run-p build:cjs build:esm build:types",
+    "build:cjs": "tsc --module commonjs --outDir cjs/",
+    "build:esm": "tsc --module ES6 --outDir esm/",
+    "build:types": "tsc --declaration true --emitDeclarationOnly true --declarationDir types",
+    "prettier": "npm run prettier:base -- --write",
+    "prettier:check": "npm run prettier:base -- --check",
+    "prettier:base": "prettier src/** *.json ./*js README.md examples/**",
+    "lint": "eslint --fix src examples",
+    "lint:check": "eslint src examples",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "files": [
+    "package.json",
+    "cjs/**",
+    "esm/**",
+    "types/**",
+    "src/**",
+    "README.md",
+    "LICENSE.txt"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/project-kessel/kessel-sdk-node.git"
+  },
+  "keywords": [
+    "kessel"
+  ],
+  "author": "Josejulio Martínez",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/project-kessel/kessel-sdk-node/issues"
+  },
+  "homepage": "https://project-kessel.github.io",
+  "dependencies": {
+    "nice-grpc": "^2.1.12"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.34.0",
+    "@typescript-eslint/parser": "^8.34.0",
+    "eslint": "^9.28.0",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-jest": "^28.13.5",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.5.3",
+    "tsx": "^4.20.2",
+    "typescript": "^5.8.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
