@@ -7,9 +7,6 @@
     "rootDir": "./",
     "esModuleInterop": true,
     "strict": true,
-    "paths": {
-      "kessel-sdk/*": ["../src/*"]
-    }
   },
   "include": ["./**/*.ts"],
   "exclude": ["node_modules"]

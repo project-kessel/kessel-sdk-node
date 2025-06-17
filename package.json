@@ -4,10 +4,12 @@
   "description": "Client SDK for Kessel.",
   "type": "module",
   "exports": {
-    "require": "./cjs/*",
-    "import": "./esm/*"
+    "./*": {
+      "require": "./cjs/*",
+      "import": "./esm/*",
+      "types": "./types/*"
+    }
   },
-  "types": "./types/",
   "scripts": {
     "build": "run-p build:cjs build:esm build:types",
     "build:cjs": "tsc --module commonjs --outDir cjs/",
@@ -18,7 +20,7 @@
     "prettier:base": "prettier src/** *.json ./*js README.md examples/**",
     "lint": "eslint --fix src examples",
     "lint:check": "eslint src examples",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "files": [
     "package.json",
@@ -46,14 +48,17 @@
     "nice-grpc": "^2.1.12"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^24.0.1",
     "@typescript-eslint/eslint-plugin": "^8.34.0",
     "@typescript-eslint/parser": "^8.34.0",
     "eslint": "^9.28.0",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-jest": "^28.13.5",
+    "jest": "^30.0.0",
     "npm-run-all": "^4.1.5",
     "prettier": "^3.5.3",
-    "tsx": "^4.20.2",
+    "ts-jest": "^29.4.0",
     "typescript": "^5.8.3"
   },
   "publishConfig": {
