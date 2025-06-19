@@ -2,7 +2,8 @@
   "name": "kessel-sdk-examples",
   "version": "1.0.0",
   "scripts": {
-    "check": "tsx check.ts"
+    "check": "tsx check.ts",
+    "streamed_list_objects": "tsx streamed_list_objects.ts"
   },
   "author": "Josejulio Martínez",
   "license": "Apache-2.0",
