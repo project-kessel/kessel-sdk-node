@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "scripts": {
     "check": "tsx check.ts",
-    "streamed_list_objects": "tsx streamed_list_objects.ts"
+    "check_for_update": "tsx check_for_update.ts",
+    "delete_resource": "tsx delete_resource.ts",
+    "report_resource": "tsx report_resource.ts",
+    "streamed_list_objects": "tsx streamed_list_objects.ts",
+    "promisify": "tsx promisify.ts"
   },
   "author": "Josejulio Martínez",
   "license": "Apache-2.0",

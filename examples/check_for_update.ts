@@ -1,7 +1,7 @@
 import { KesselInventoryServiceClient } from "kessel-sdk/kessel/inventory/v1beta2/inventory_service";
 import { ResourceReference } from "kessel-sdk/kessel/inventory/v1beta2/resource_reference";
 import { SubjectReference } from "kessel-sdk/kessel/inventory/v1beta2/subject_reference";
-import { CheckRequest } from "kessel-sdk/kessel/inventory/v1beta2/check_request";
+import { CheckForUpdateRequest } from "kessel-sdk/kessel/inventory/v1beta2/check_for_update_request";
 import { ChannelCredentials } from "@grpc/grpc-js";
 
 const stub = new KesselInventoryServiceClient(
@@ -12,7 +12,7 @@ const stub = new KesselInventoryServiceClient(
   },
 );
 
-const subjectReference: SubjectReference = {
+const subject: SubjectReference = {
   resource: {
     reporter: {
       type: "rbac",
@@ -30,18 +30,18 @@ const resource: ResourceReference = {
   resourceType: "workspace",
 };
 
-const check_request: CheckRequest = {
+const checkForUpdateRequest: CheckForUpdateRequest = {
   object: resource,
   relation: "inventory_host_view",
-  subject: subjectReference,
+  subject: subject,
 };
 
-stub.check(check_request, (error, response) => {
+stub.checkForUpdate(checkForUpdateRequest, (error, response) => {
   if (!error) {
-    console.log("Check response received successfully:");
+    console.log("CheckForUpdate response received successfully:");
     console.log(response);
   } else {
-    console.log("gRPC error occurred during Check:");
+    console.log("gRPC error occurred during CheckForUpdate:");
     console.log(`Exception:`, error);
   }
 });

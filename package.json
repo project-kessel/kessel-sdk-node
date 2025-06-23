@@ -5,16 +5,16 @@
   "type": "module",
   "exports": {
     "./*": {
-      "require": "./cjs/*",
-      "import": "./esm/*",
-      "types": "./types/*"
+      "require": "./dist/cjs/*",
+      "import": "./dist/esm/*",
+      "types": "./dist/types/*"
     }
   },
   "scripts": {
     "build": "run-p build:cjs build:esm build:types",
-    "build:cjs": "tsc --module commonjs --outDir cjs/",
-    "build:esm": "tsc --module ES6 --outDir esm/",
-    "build:types": "tsc --declaration true --emitDeclarationOnly true --declarationDir types",
+    "build:cjs": "tsc --module commonjs --outDir dist/cjs/",
+    "build:esm": "tsc --module ES6 --outDir dist/esm/",
+    "build:types": "tsc --declaration true --emitDeclarationOnly true --declarationDir dist/types",
     "prettier": "npm run prettier:base -- --write",
     "prettier:check": "npm run prettier:base -- --check",
     "prettier:base": "prettier src/** *.json ./*js README.md examples/**",
@@ -24,9 +24,7 @@
   },
   "files": [
     "package.json",
-    "cjs/**",
-    "esm/**",
-    "types/**",
+    "dist/**",
     "src/**",
     "README.md",
     "LICENSE.txt"

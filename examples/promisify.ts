@@ -2,7 +2,10 @@ import { KesselInventoryServiceClient } from "kessel-sdk/kessel/inventory/v1beta
 import { ResourceReference } from "kessel-sdk/kessel/inventory/v1beta2/resource_reference";
 import { SubjectReference } from "kessel-sdk/kessel/inventory/v1beta2/subject_reference";
 import { CheckRequest } from "kessel-sdk/kessel/inventory/v1beta2/check_request";
+import { RepresentationType } from "kessel-sdk/kessel/inventory/v1beta2/representation_type";
+import { StreamedListObjectsRequest } from "kessel-sdk/kessel/inventory/v1beta2/streamed_list_objects_request";
 import { ChannelCredentials } from "@grpc/grpc-js";
+import { promisify } from "util";
 
 const stub = new KesselInventoryServiceClient(
   "localhost:9081",
@@ -36,12 +39,37 @@ const check_request: CheckRequest = {
   subject: subjectReference,
 };
 
-stub.check(check_request, (error, response) => {
-  if (!error) {
+const representationType: RepresentationType = {
+  resourceType: "workspace",
+  reporterType: "rbac",
+};
+
+const streamedListObjectsRequest: StreamedListObjectsRequest = {
+  objectType: representationType,
+  relation: "inventory_host_view",
+  subject: subjectReference,
+};
+
+(async () => {
+  const check = promisify(stub.check.bind(stub));
+  try {
+    const response = await check(check_request);
     console.log("Check response received successfully:");
     console.log(response);
-  } else {
+  } catch (e) {
     console.log("gRPC error occurred during Check:");
-    console.log(`Exception:`, error);
+    console.log(`Exception:`, e);
   }
-});
+
+  // We do not need to call promisify on `streamedListObjects` as this is already an async iterator
+  const streamedResponse = stub.streamedListObjects(streamedListObjectsRequest);
+  console.log("Received streamed response:");
+  try {
+    for await (const response of streamedResponse) {
+      console.log(response);
+    }
+  } catch (e) {
+    console.log("gRPC error occurred during Check:");
+    console.log(`Exception:`, e);
+  }
+})();
