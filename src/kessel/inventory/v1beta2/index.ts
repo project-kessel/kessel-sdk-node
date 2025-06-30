@@ -75,6 +75,27 @@ const optionalBuffer = (content: string | undefined): Buffer | undefined => {
   return undefined;
 };
 
+/**
+ * Converts a callback-based gRPC client to a Promise-based client.
+ *
+ * @template T - The client type to promisify
+ * @param client - The gRPC client instance to promisify
+ * @param serviceDefinition - Optional service definition. If not provided, will attempt to extract from client constructor
+ * @returns A promisified version of the client where all unary methods return Promises instead of using callbacks
+ * @throws {Error} When the client doesn't have a ServiceDefinition and one wasn't provided
+ *
+ * @example
+ * ```typescript
+ * import { KesselInventoryServiceClient } from "kessel-sdk/kessel/inventory/v1beta2/inventory_service";
+ * import { credentials } from "@grpc/grpc-js";
+ *
+ * const client = new KesselInventoryServiceClient("localhost:9000", credentials.createInsecure());
+ * const promisifiedClient = promisifyClient(client);
+ *
+ * // Now you can use async/await
+ * const response = await promisifiedClient.check(request);
+ * ```
+ */
 export const promisifyClient = <T extends Client>(
   client: T,
   serviceDefinition?: ServiceDefinition,
@@ -118,7 +139,15 @@ export const promisifyClient = <T extends Client>(
   return new Proxy(client, handler) as PromisifiedClient<T>;
 };
 
+/**
+ * Error thrown when required configuration fields are missing during client building.
+ */
 export class IncompleteKesselConfigurationError extends Error {
+  /**
+   * Creates a new IncompleteKesselConfigurationError.
+   *
+   * @param fields - Array of missing field names
+   */
   public constructor(fields: Array<string>) {
     super(
       `IncompleteKesselConfigurationError: Missing the following fields to build: ${fields.join(",")}`,
@@ -130,80 +159,114 @@ type ValidChannelOption = keyof typeof recognizedOptions;
 type ValidChannelOptionValue<T extends ValidChannelOption> = ChannelOptions[T];
 
 /**
- * Keep alive configuration
+ * Configuration options for gRPC keep-alive behavior.
  */
 export interface ClientConfigKeepAlive {
   /**
-   * Time in milliseconds before pinging the server to check if it's alive - grpc.keepalive_time_ms.
+   * Time in milliseconds before pinging the server to check if it's alive.
+   * Corresponds to the gRPC option `grpc.keepalive_time_ms`.
+   *
+   * @default 10000
    */
   timeMs: number | undefined;
+
   /**
-   * Time in milliseconds before closing the connection - grpc.keepalive_timeout_ms.
+   * Time in milliseconds to wait for a keepalive ping response before closing the connection.
+   * Corresponds to the gRPC option `grpc.keepalive_timeout_ms`.
+   *
+   * @default 5000
    */
   timeoutMs: number | undefined;
+
   /**
-   * Is it possible to send pings without any outstanding stream? - grpc.keepalive_permit_without_calls.
+   * Whether to send keepalive pings even when there are no outstanding streams.
+   * Corresponds to the gRPC option `grpc.keepalive_permit_without_calls`.
+   *
+   * @default true
    */
   permitWithoutCalls: boolean | undefined;
 }
 
 /**
- * Credentials configuration.
+ * Configuration for gRPC channel credentials.
  */
 export type ClientConfigCredentials =
   | {
       /**
-       * Does not use credentials.
+       * Use insecure credentials (no TLS).
        */
       type: "insecure";
     }
   | {
       /**
-       * Uses SSL credentials.
+       * Use secure SSL/TLS credentials.
        */
       type: "secure";
+
       /**
-       * Contents of the root certificate.
+       * PEM-encoded root certificate(s) for verifying the server.
+       * If not provided, uses system default root certificates.
        */
       rootCerts?: string;
+
       /**
-       * Contents of the private certificate.
+       * PEM-encoded private key for client certificate authentication.
        */
       privateCerts?: string;
+
       /**
-       * Contents of the Certificate chain.
+       * PEM-encoded certificate chain for client certificate authentication.
        */
       certChain?: string;
+
       /**
-       * If not false, the server certificate is verified against the list of supplied CAs. An 'error' event is emitted if verification fails. Default: true.
+       * Whether to verify the server certificate against the list of supplied CAs.
+       *
+       * @default true
        */
       rejectUnauthorized?: boolean;
     };
 
 /**
- * Convenience client configuration.
+ * Complete configuration object for creating a Kessel Inventory Service client.
  */
 export interface ClientConfig {
   /**
-   * Specifies the host and port in the format `host:port` where the inventory gRPC service is running. e.g. localhost:9000.
+   * The server address in the format `host:port`.
+   *
+   * @example "localhost:9000"
+   * @example "kessel-api.example.com:443"
    */
   target?: string;
+
   /**
-   * Configures the credentials to communicate over the channel.
+   * Credentials configuration for the gRPC channel.
+   * If not specified, defaults to secure SSL credentials.
    */
   credentials?: ClientConfigCredentials;
+
   /**
-   * Configures the keep-alive parameters
+   * Keep-alive configuration options.
+   * If not specified, uses default keep-alive settings.
    */
   keepAlive?: Partial<ClientConfigKeepAlive>;
+
   /**
-   * Additional channel options accepted by the underlying @grpc/grpc-js library
+   * Additional gRPC channel options supported by @grpc/grpc-js.
+   *
+   * @see {@link https://www.npmjs.com/package/@grpc/grpc-js#supported-channel-options}
+   * @see {@link https://grpc.github.io/grpc/core/group__grpc__arg__keys.html}
    */
   channelOptions?: Partial<{
     [Key in ValidChannelOption]: ValidChannelOptionValue<Key>;
   }>;
 }
 
+/**
+ * Returns the default keep-alive configuration.
+ *
+ * @returns Default keep-alive settings with 10s ping interval, 5s timeout, and permits without calls
+ */
 export const defaultKeepAlive = (): ClientConfigKeepAlive => {
   return {
     timeMs: 10000,
@@ -212,23 +275,72 @@ export const defaultKeepAlive = (): ClientConfigKeepAlive => {
   };
 };
 
+/**
+ * Returns the default channel credentials (secure SSL).
+ *
+ * @returns SSL credentials using system default root certificates
+ */
 export const defaultCredentials = (): ChannelCredentials => {
   return ChannelCredentials.createSsl();
 };
 
+/**
+ * Builder class for creating configured Kessel Inventory Service clients.
+ * Provides a fluent API for setting up gRPC client configuration and returns
+ * a fully promisified client instance.
+ *
+ * @example
+ * ```typescript
+ * // Basic usage with insecure connection
+ * const client = ClientBuilder.builder()
+ *   .withTarget("localhost:9000")
+ *   .withInsecureCredentials()
+ *   .build();
+ *
+ * // Advanced usage with custom configuration
+ * const client = ClientBuilder.builder()
+ *   .withTarget("kessel-api.example.com:443")
+ *   .withSecureCredentials()
+ *   .withKeepAlive(15000, 10000, false)
+ *   .withChannelOption('grpc.primary_user_agent', 'my-app/1.0.0')
+ *   .build();
+ *
+ * // Using configuration object
+ * const config: ClientConfig = {
+ *   target: "localhost:9000",
+ *   credentials: { type: "insecure" }
+ * };
+ * const client = ClientBuilder.builderFromConfig(config).build();
+ * ```
+ */
 export class ClientBuilder {
   private _target: string | undefined;
   private _credentials: ChannelCredentials | undefined;
   private readonly _channelOptions: ChannelOptions;
 
+  /**
+   * Gets the currently configured target server address.
+   *
+   * @returns The target server address or undefined if not set
+   */
   get target() {
     return this._target;
   }
 
+  /**
+   * Gets the currently configured channel credentials.
+   *
+   * @returns The configured credentials (readonly)
+   */
   get credentials(): Readonly<ChannelCredentials> {
     return this._credentials;
   }
 
+  /**
+   * Gets the currently configured keep-alive settings.
+   *
+   * @returns The configured keep-alive options (readonly)
+   */
   get keepAlive(): Readonly<ClientConfigKeepAlive> {
     return {
       timeMs: this._channelOptions["grpc.keepalive_time_ms"],
@@ -261,10 +373,31 @@ export class ClientBuilder {
     }
   }
 
+  /**
+   * Creates a new ClientBuilder instance with default configuration.
+   *
+   * @returns A new ClientBuilder instance
+   */
   public static builder(): ClientBuilder {
     return new ClientBuilder();
   }
 
+  /**
+   * Creates a new ClientBuilder instance from a configuration object.
+   *
+   * @param config - The client configuration object
+   * @returns A new ClientBuilder instance configured with the provided settings
+   *
+   * @example
+   * ```typescript
+   * const config: ClientConfig = {
+   *   target: "localhost:9000",
+   *   credentials: { type: "insecure" },
+   *   keepAlive: { timeMs: 15000, timeoutMs: 10000 }
+   * };
+   * const client = ClientBuilder.builderFromConfig(config).build();
+   * ```
+   */
   public static builderFromConfig(config: ClientConfig): ClientBuilder {
     const keepAlive = { ...defaultKeepAlive(), ...config.keepAlive };
 
@@ -293,25 +426,85 @@ export class ClientBuilder {
     return builder;
   }
 
+  /**
+   * Sets the target server address.
+   *
+   * @param target - The server address in `host:port` format
+   * @returns The ClientBuilder instance for method chaining
+   *
+   * @example
+   * ```typescript
+   * builder.withTarget("localhost:9000")
+   * builder.withTarget("kessel-api.example.com:443")
+   * ```
+   */
   public withTarget(target: string): ClientBuilder {
     this._target = target;
     return this;
   }
 
   /**
-   * @see ChannelCredentials.createSsl(), ChannelCredentials.createFromSecureContext() and ChannelCredentials.createInsecure()
-   * @param credentials
+   * Sets custom channel credentials.
+   *
+   * @param credentials - The ChannelCredentials instance
+   * @returns The ClientBuilder instance for method chaining
+   *
+   * @see {@link https://grpc.github.io/grpc/node/grpc.ChannelCredentials.html}
+   *
+   * @example
+   * ```typescript
+   * import { ChannelCredentials } from "@grpc/grpc-js";
+   *
+   * builder.withCredentials(ChannelCredentials.createSsl())
+   * builder.withCredentials(ChannelCredentials.createInsecure())
+   * ```
    */
   public withCredentials(credentials: ChannelCredentials): ClientBuilder {
     this._credentials = credentials;
     return this;
   }
 
+  /**
+   * Configures the client to use insecure credentials (no TLS).
+   * Use this for local development or when TLS is handled elsewhere.
+   *
+   * @returns The ClientBuilder instance for method chaining
+   *
+   * @example
+   * ```typescript
+   * builder.withInsecureCredentials()
+   * ```
+   */
   public withInsecureCredentials(): ClientBuilder {
     this._credentials = ChannelCredentials.createInsecure();
     return this;
   }
 
+  /**
+   * Configures the client to use SSL/TLS credentials.
+   *
+   * @param rootCerts - Buffer containing PEM-encoded root certificates. If null, uses system defaults
+   * @param privateCerts - Buffer containing PEM-encoded private key for client authentication
+   * @param certChain - Buffer containing PEM-encoded certificate chain for client authentication
+   * @param verifyOptions - Additional options for certificate verification
+   * @returns The ClientBuilder instance for method chaining
+   *
+   * @example
+   * ```typescript
+   * // Use system default root certificates
+   * builder.withSecureCredentials()
+   *
+   * // Use custom root certificate
+   * const rootCert = Buffer.from(certPemString, 'utf8');
+   * builder.withSecureCredentials(rootCert)
+   *
+   * // Client certificate authentication
+   * const rootCert = Buffer.from(rootCertPem, 'utf8');
+   * const privateKey = Buffer.from(privateKeyPem, 'utf8');
+   * const certChain = Buffer.from(certChainPem, 'utf8');
+   * builder.withSecureCredentials(rootCert, privateKey, certChain)
+   * ```
+   */
   public withSecureCredentials(
     rootCerts?: Buffer | null,
     privateCerts?: Buffer | null,
@@ -327,6 +520,25 @@ export class ClientBuilder {
     return this;
   }
 
+  /**
+   * Configures the client to use credentials from a SecureContext.
+   *
+   * @param secureContext - The TLS SecureContext to use
+   * @param verifyOptions - Additional options for certificate verification
+   * @returns The ClientBuilder instance for method chaining
+   *
+   * @example
+   * ```typescript
+   * import { createSecureContext } from 'tls';
+   *
+   * const secureContext = createSecureContext({
+   *   cert: certPemString,
+   *   key: keyPemString,
+   *   ca: caPemString
+   * });
+   * builder.withSecureContextCredentials(secureContext)
+   * ```
+   */
   public withSecureContextCredentials(
     secureContext: SecureContext,
     verifyOptions?: VerifyOptions,
@@ -338,6 +550,27 @@ export class ClientBuilder {
     return this;
   }
 
+  /**
+   * Configures credentials using a configuration object.
+   *
+   * @param credentials - The credentials configuration
+   * @returns The ClientBuilder instance for method chaining
+   *
+   * @example
+   * ```typescript
+   * // Insecure credentials
+   * builder.withCredentialsConfig({ type: "insecure" })
+   *
+   * // Secure credentials with custom certificates
+   * builder.withCredentialsConfig({
+   *   type: "secure",
+   *   rootCerts: rootCertPemString,
+   *   privateCerts: privateKeyPemString,
+   *   certChain: certChainPemString,
+   *   rejectUnauthorized: true
+   * })
+   * ```
+   */
   public withCredentialsConfig(
     credentials: ClientConfigCredentials,
   ): ClientBuilder {
@@ -360,6 +593,23 @@ export class ClientBuilder {
     return this;
   }
 
+  /**
+   * Configures keep-alive settings for the gRPC connection.
+   *
+   * @param timeMs - Time in milliseconds before sending keepalive pings
+   * @param timeoutMs - Time in milliseconds to wait for keepalive ping response
+   * @param permitWithoutCalls - Whether to send pings even when there are no active calls
+   * @returns The ClientBuilder instance for method chaining
+   *
+   * @example
+   * ```typescript
+   * // Custom keep-alive settings
+   * builder.withKeepAlive(15000, 10000, false)
+   *
+   * // More aggressive keep-alive for unreliable networks
+   * builder.withKeepAlive(5000, 2000, true)
+   * ```
+   */
   public withKeepAlive(
     timeMs: number,
     timeoutMs: number,
@@ -372,6 +622,25 @@ export class ClientBuilder {
     return this;
   }
 
+  /**
+   * Sets a custom gRPC channel option.
+   *
+   * @template T - The channel option key type
+   * @param option - The channel option name
+   * @param value - The channel option value
+   * @returns The ClientBuilder instance for method chaining
+   *
+   * @see {@link https://grpc.github.io/grpc/core/group__grpc__arg__keys.html}
+   *
+   * @example
+   * ```typescript
+   * // Set custom user agent
+   * builder.withChannelOption('grpc.primary_user_agent', 'my-app/1.0.0')
+   *
+   * // Set maximum message size
+   * builder.withChannelOption('grpc.max_receive_message_length', 4 * 1024 * 1024)
+   * ```
+   */
   public withChannelOption<T extends ValidChannelOption>(
     option: T,
     value: ValidChannelOptionValue<T>,
@@ -380,6 +649,23 @@ export class ClientBuilder {
     return this;
   }
 
+  /**
+   * Builds and returns a configured, promisified Kessel Inventory Service client.
+   *
+   * @returns A promisified client instance ready for use with async/await
+   * @throws {IncompleteKesselConfigurationError} When required configuration is missing (e.g., target)
+   *
+   * @example
+   * ```typescript
+   * const client = ClientBuilder.builder()
+   *   .withTarget("localhost:9000")
+   *   .withInsecureCredentials()
+   *   .build();
+   *
+   * // All methods return promises
+   * const response = await client.check(request);
+   * ```
+   */
   public build(): PromisifiedClient<KesselInventoryServiceClient> {
     this.validate();
 
