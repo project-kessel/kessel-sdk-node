@@ -195,13 +195,13 @@ export interface ClientConfig {
   /**
    * Configures the keep-alive parameters
    */
-  keepAlive?: ClientConfigKeepAlive;
+  keepAlive?: Partial<ClientConfigKeepAlive>;
   /**
    * Additional channel options accepted by the underlying @grpc/grpc-js library
    */
-  channelOptions?: {
+  channelOptions?: Partial<{
     [Key in ValidChannelOption]: ValidChannelOptionValue<Key>;
-  };
+  }>;
 }
 
 export const defaultKeepAlive = (): ClientConfigKeepAlive => {
