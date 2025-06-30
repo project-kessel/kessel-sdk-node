@@ -11,13 +11,16 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20, 22]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Configure
+      - name: Configure Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ matrix.node-version }}
           cache: npm
       - name: Install
         run: npm ci
