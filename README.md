@@ -29,6 +29,16 @@ npm install --save kessel-sdk
 
 ## Usage
 
+This SDK offers two primary ways to create a client:
+
+1.  **Vanilla [@grpc/grpc-js](https://github.com/grpc/grpc-node/tree/master/packages/grpc-js) Client**:
+    Use the `KesselInventoryServiceClient` class directly for a standard, callback-based gRPC client.
+    This approach offers fine-grained control and is familiar to those who have worked with `grpc-js` before.
+2.  **Promisified `ClientBuilder`**: A convenient builder that simplifies client creation and provides a modern `async/await`
+    and promise-based API out of the box. We recommend this approach for most use cases to standardize client configuration.
+
+### Vanilla grpc-js
+
 1. **Create a client**
 
 First, you need to create a `KesselInventoryServiceClient` instance. This requires you to specify the host and port
@@ -94,9 +104,10 @@ client.check(request, (error, response) => {
 });
 ```
 
-### Using Promises
+#### Using Promises
 
-For a more modern async/await workflow, you can use Node.js's util.promisify to wrap the client methods in promises.
+For a more modern async/await workflow, you can use Node.js's util.promisify to wrap the client methods in promises,
+or you can try the [ClientBuilder](#client-builder)
 
 ```typescript
 import { promisify } from "util";
@@ -117,6 +128,69 @@ async function checkPermission() {
 }
 
 checkPermission();
+```
+
+### Client Builder
+
+The `ClientBuilder` is a helper we provide to simplify client instantiation and standardize default settings across all
+Kessel SDKs. It returns a fully promisified client, making it easy to work with `async/await` and async iterators for
+streaming calls.
+
+1. _Create a client_
+
+Start with the `ClientBuilder`, specify the host and port of your Kessel API instance, provide credentials and any other
+options, and then call the `build()` method.
+
+This will provide a Client that has been already promisified, all the operations are async or async iterators for streamed data.
+
+```ts
+import { ClientBuilder } from "kessel-sdk/kessel/inventory/v1beta2";
+const client = ClientBuilder.builder()
+  .withTarget("localhost:9081")
+  .withInsecureCredentials()
+  // .withCredentials(ChannelCredentials.createSsl()) // or use secure credentials
+  // .withKeepAlive(10000, 5000, true)  // If we want to adjust the timeout & keepAlive values
+  // .withChannelOption('grpc.primary_user_agent', 'my-app/1.0.0') // Allow to customize channel options
+  .build();
+```
+
+2. **Making API Calls**
+
+Once you have a client, you can call its methods to interact with the Kessel API. The following is an example of how to
+use the `check` method to see if a user has a specific permission for a resource.
+
+The `check` method takes a request object and returns the response of throws an error. The request object specifies the `subject`
+(who is performing the action), the `relation` (the permission to check), and the `object` (the resource being accessed).
+
+```typescript
+const request = {
+  object: {
+    reporter: {
+      type: "rbac",
+    },
+    resourceId: "1234",
+    resourceType: "workspace",
+  },
+  relation: "inventory_host_view",
+  subject: {
+    reporter: {
+      type: "rbac",
+    },
+    resourceType: "principal",
+    resourceId: "localhost/1",
+  },
+};
+
+try {
+  const response = await client.check(request);
+  if (response.allowed) {
+    console.log("Access granted!");
+  } else {
+    console.log("Access denied.");
+  }
+} catch (error) {
+  console.error("Failed to perform check:", error);
+}
 ```
 
 ## Building the SDK
@@ -145,6 +219,13 @@ Building the SDK will create three directories:
 
 The [./examples](./examples) directory contains several code samples demonstrating how to use the SDK.
 
+The examples are split into two categories:
+
+- **`vanilla`**: These examples use the standard `KesselInventoryServiceClient` that comes directly from
+  `@grpc/grpc-js`. They are primarily callback-based.
+- **`builder`**: These examples use our recommended `ClientBuilder` class to create a promisified client instance for
+  modern `async/await` usage.
+
 To run the examples:
 
 1. **Build the SDK** by following the instructions in the [Building the SDK](#building-the-sdk) section.
@@ -161,9 +242,14 @@ To run the examples:
 ```
 
 4. **Run the desired example**:
-   - `npm run check`: Checks a permission.
-   - `npm run check_for_update`: Checks a permission for an update operation.
-   - `npm run report_resource`: Reports a resource to the inventory.
-   - `npm run delete_resource`: Deletes a resource from the inventory.
-   - `npm run streamed_list_objects`: List objects using a streaming API call
-   - `npm run promisify`: Demonstrates how to use promises with the SDK
+   - `npm run vanilla:check`: Checks a permission.
+   - `npm run vanilla:check_for_update`: Checks a permission for an update operation.
+   - `npm run vanilla:report_resource`: Reports a resource to the inventory.
+   - `npm run vanilla:delete_resource`: Deletes a resource from the inventory.
+   - `npm run vanilla:streamed_list_objects`: List objects using a streaming API call
+   - `npm run vanilla:promisify`: Demonstrates how to use promises with the SDK
+   - `npm run builder:check`: Checks a permission with the builder API.
+   - `npm run builder:check_for_update`: Checks a permission for an update operation with the builder API.
+   - `npm run builder:report_resource`: Reports a resource to the inventory with the builder API.
+   - `npm run builder:delete_resource`: Deletes a resource from the inventory with the builder API.
+   - `npm run builder:streamed_list_objects`: List objects using a streaming API call with the builder API
