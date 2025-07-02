@@ -1,7 +1,7 @@
-import { KesselInventoryServiceClient } from "kessel-sdk/kessel/inventory/v1beta2/inventory_service";
+import { KesselInventoryServiceClient } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/inventory_service";
 
-import { SubjectReference } from "kessel-sdk/kessel/inventory/v1beta2/subject_reference";
-import { RepresentationType } from "kessel-sdk/kessel/inventory/v1beta2/representation_type";
+import { SubjectReference } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/subject_reference";
+import { RepresentationType } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/representation_type";
 import { StreamedListObjectsRequest } from "kessel-sdk/kessel/inventory/v1beta2/streamed_list_objects_request";
 import { ChannelCredentials } from "@grpc/grpc-js";
 

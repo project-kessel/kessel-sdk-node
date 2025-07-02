@@ -1,9 +1,9 @@
-import { KesselInventoryServiceClient } from "kessel-sdk/kessel/inventory/v1beta2/inventory_service";
-import { ResourceReference } from "kessel-sdk/kessel/inventory/v1beta2/resource_reference";
-import { SubjectReference } from "kessel-sdk/kessel/inventory/v1beta2/subject_reference";
-import { CheckRequest } from "kessel-sdk/kessel/inventory/v1beta2/check_request";
-import { RepresentationType } from "kessel-sdk/kessel/inventory/v1beta2/representation_type";
-import { StreamedListObjectsRequest } from "kessel-sdk/kessel/inventory/v1beta2/streamed_list_objects_request";
+import { KesselInventoryServiceClient } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/inventory_service";
+import { ResourceReference } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/resource_reference";
+import { SubjectReference } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/subject_reference";
+import { CheckRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/check_request";
+import { RepresentationType } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/representation_type";
+import { StreamedListObjectsRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/streamed_list_objects_request";
 import { ChannelCredentials } from "@grpc/grpc-js";
 import { promisify } from "util";
 
