@@ -1,7 +1,7 @@
 {
   "name": "@project-kessel/kessel-sdk",
   "version": "1.0.0",
-  "description": "Official Node.js SDK for Project Kessel - A powerful and scalable access control system inspired by Google's Zanzibar for managing permissions and authorization through relationship-based access control (ReBAC).",
+  "description": "This is the official Node.js SDK for [Project Kessel](https://github.com/project-kessel), a system for unifying APIs and experiences with fine-grained authorization, common inventory, and CloudEvents.",
   "type": "module",
   "exports": {
     "./*": {
