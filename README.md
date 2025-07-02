@@ -1,10 +1,8 @@
 # Kessel SDK for Node.js
 
-This is the official Node.js SDK for the [Project Kessel](https://github.com/project-kessel) Relationship API.
-Project Kessel provides a powerful and scalable access control system inspired by Google's Zanzibar, allowing you to manage
-permissions and authorization in your applications by storing and querying relationships between entities.
+This is the official Node.js SDK for [Project Kessel](https://github.com/project-kessel), a system for unifying APIs and experiences with fine-grained authorization, common inventory, and CloudEvents.
 
-This SDK provides a convenient client for interacting with the Kessel Relationship API from your Node.js or
+This SDK provides a convenient client for interacting with the Kessel APIs from your Node.js or
 TypeScript application.
 
 ## Features
