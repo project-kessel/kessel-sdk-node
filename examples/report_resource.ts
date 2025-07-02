@@ -1,7 +1,7 @@
-import { KesselInventoryServiceClient } from "kessel-sdk/kessel/inventory/v1beta2/inventory_service";
-import { ReportResourceRequest } from "kessel-sdk/kessel/inventory/v1beta2/report_resource_request";
-import { ResourceRepresentations } from "kessel-sdk/kessel/inventory/v1beta2/resource_representations";
-import { RepresentationMetadata } from "kessel-sdk/kessel/inventory/v1beta2/representation_metadata";
+import { KesselInventoryServiceClient } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/inventory_service";
+import { ReportResourceRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/report_resource_request";
+import { ResourceRepresentations } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/resource_representations";
+import { RepresentationMetadata } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/representation_metadata";
 import { ChannelCredentials } from "@grpc/grpc-js";
 
 const stub = new KesselInventoryServiceClient(
