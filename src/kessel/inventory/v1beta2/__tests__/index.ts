@@ -1,13 +1,11 @@
 import {
   ClientBuilder,
-  defaultCredentials,
-  defaultKeepAlive,
-  IncompleteKesselConfigurationError,
-  promisifyClient,
 } from "../index";
 import { ChannelCredentials, Client } from "@grpc/grpc-js";
 import { ServiceDefinition } from "@grpc/grpc-js/src";
 import { SecureContext } from "node:tls";
+import {defaultCredentials, defaultKeepAlive, IncompleteKesselConfigurationError} from "../../index";
+import {promisifyClient} from "../../../grpc";
 
 const mockCerts = {
   rootCerts:
@@ -74,14 +72,18 @@ describe("ClientBuilder", () => {
     const builder = ClientBuilder.builder().withTarget("foobar:123");
     expect(builder.target).toEqual("foobar:123");
     expect(builder.keepAlive).toEqual(defaultKeepAlive());
-    expect(builder.credentials).toEqual(defaultCredentials());
+    expect(builder.credentials).toEqual(ChannelCredentials.createSsl());
   });
 
   it("Can override defaults", () => {
     const builder = ClientBuilder.builder()
       .withTarget("foobar:123")
       .withCredentials(ChannelCredentials.createInsecure())
-      .withKeepAlive(100, 200, false);
+      .withKeepAlive({
+        timeMs: 100,
+        timeoutMs: 200,
+        permitWithoutCalls: false,
+      });
     expect(builder.target).toEqual("foobar:123");
     expect(builder.keepAlive.timeMs).toEqual(100);
     expect(builder.keepAlive.timeoutMs).toEqual(200);
@@ -164,7 +166,11 @@ describe("ClientBuilder", () => {
     it("Can set keep alive with different values", () => {
       const builder = ClientBuilder.builder()
         .withTarget("localhost:9000")
-        .withKeepAlive(5000, 3000, true);
+        .withKeepAlive({
+          timeMs: 5000,
+          timeoutMs: 3000,
+          permitWithoutCalls: true,
+        });
 
       expect(builder.keepAlive.timeMs).toEqual(5000);
       expect(builder.keepAlive.timeoutMs).toEqual(3000);
@@ -174,7 +180,11 @@ describe("ClientBuilder", () => {
     it("Can set keep alive with zero values", () => {
       const builder = ClientBuilder.builder()
         .withTarget("localhost:9000")
-        .withKeepAlive(0, 0, false);
+        .withKeepAlive({
+          timeMs: 0,
+          timeoutMs: 0,
+          permitWithoutCalls: false,
+        });
 
       expect(builder.keepAlive.timeMs).toEqual(0);
       expect(builder.keepAlive.timeoutMs).toEqual(0);
@@ -208,7 +218,11 @@ describe("ClientBuilder", () => {
       const builder = ClientBuilder.builder()
         .withTarget("localhost:9000")
         .withInsecureCredentials()
-        .withKeepAlive(1000, 2000, true)
+        .withKeepAlive({
+          timeMs: 1000,
+          timeoutMs: 2000,
+          permitWithoutCalls: true,
+        })
         .withChannelOption("grpc.max_receive_message_length", 1024);
 
       expect(builder.target).toEqual("localhost:9000");
@@ -221,7 +235,7 @@ describe("ClientBuilder", () => {
 
   describe("ClientBuilder.builderFromConfig", () => {
     it("Supports a fromConfig builder method", () => {
-      const builder = ClientBuilder.builderFromConfig({
+      const builder = ClientBuilder.builder().withConfig({
         keepAlive: {
           permitWithoutCalls: false,
           timeMs: 200,
@@ -243,7 +257,7 @@ describe("ClientBuilder", () => {
     });
 
     it("fromConfig allows to specify certificates", () => {
-      const builder = ClientBuilder.builderFromConfig({
+      const builder = ClientBuilder.builder().withConfig({
         target: "localhost:1337",
         credentials: {
           type: "secure",
@@ -257,17 +271,17 @@ describe("ClientBuilder", () => {
     });
 
     it("Uses default values", () => {
-      const builder = ClientBuilder.builderFromConfig({
+      const builder = ClientBuilder.builder().withConfig({
         target: "jbond:007",
       });
 
       expect(builder.target).toEqual("jbond:007");
-      expect(builder.credentials).toEqual(defaultCredentials());
+      expect(builder.credentials).toEqual(ChannelCredentials.createSsl());
       expect(builder.keepAlive).toEqual(defaultKeepAlive());
     });
 
     it("Handles partial keep alive configuration", () => {
-      const builder = ClientBuilder.builderFromConfig({
+      const builder = ClientBuilder.builder().withConfig({
         target: "localhost:9000",
         keepAlive: {
           timeMs: 15000,
@@ -282,7 +296,7 @@ describe("ClientBuilder", () => {
     });
 
     it("Handles channel options in config", () => {
-      const builder = ClientBuilder.builderFromConfig({
+      const builder = ClientBuilder.builder().withConfig({
         target: "localhost:9000",
         channelOptions: {
           "grpc.max_receive_message_length": 1024,
@@ -294,15 +308,15 @@ describe("ClientBuilder", () => {
     });
 
     it("Handles empty configuration", () => {
-      const builder = ClientBuilder.builderFromConfig({});
+      const builder = ClientBuilder.builder().withConfig({});
 
       expect(builder.target).toBeUndefined();
-      expect(builder.credentials).toEqual(defaultCredentials());
+      expect(builder.credentials).toEqual(ChannelCredentials.createSsl());
       expect(builder.keepAlive).toEqual(defaultKeepAlive());
     });
 
     it("Handles insecure credentials in config", () => {
-      const builder = ClientBuilder.builderFromConfig({
+      const builder = ClientBuilder.builder().withConfig({
         target: "localhost:9000",
         credentials: {
           type: "insecure",
@@ -351,7 +365,9 @@ describe("Default functions", () => {
 
   it("defaultCredentials returns SSL credentials", () => {
     const credentials = defaultCredentials();
-    expect(credentials).toEqual(ChannelCredentials.createSsl());
+    expect(credentials).toEqual({
+      type: 'secure',
+    });
   });
 });
 
@@ -454,7 +470,7 @@ describe("Edge cases and error handling", () => {
   });
 
   it("Config handles undefined credential properties", () => {
-    const builder = ClientBuilder.builderFromConfig({
+    const builder = ClientBuilder.builder().withConfig({
       target: "localhost:9000",
       credentials: {
         type: "secure",
@@ -471,7 +487,11 @@ describe("Edge cases and error handling", () => {
     expect(() =>
       ClientBuilder.builder()
         .withInsecureCredentials()
-        .withKeepAlive(1000, 2000, true)
+        .withKeepAlive({
+          timeMs: 1000,
+          timeoutMs: 2000,
+          permitWithoutCalls: true,
+        })
         .build(),
     ).toThrow(new IncompleteKesselConfigurationError(["target"]));
   });

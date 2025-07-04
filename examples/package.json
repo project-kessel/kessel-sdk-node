@@ -18,7 +18,7 @@
   "license": "Apache-2.0",
   "description": "",
   "dependencies": {
-    "kessel-sdk": "file://..",
+    "@project-kessel/kessel-sdk": "file://..",
     "tsx": "^4.20.2"
   },
   "private": true
