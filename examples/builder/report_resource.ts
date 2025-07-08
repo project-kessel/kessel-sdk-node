@@ -1,10 +1,11 @@
-import { ReportResourceRequest } from "kessel-sdk/kessel/inventory/v1beta2/report_resource_request";
-import { ResourceRepresentations } from "kessel-sdk/kessel/inventory/v1beta2/resource_representations";
-import { RepresentationMetadata } from "kessel-sdk/kessel/inventory/v1beta2/representation_metadata";
-import { ClientBuilder } from "kessel-sdk/kessel/inventory/v1beta2";
+import { ReportResourceRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/report_resource_request";
+import { ResourceRepresentations } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/resource_representations";
+import { RepresentationMetadata } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/representation_metadata";
+import { ClientBuilder } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2";
+import "dotenv/config";
 
 const client = ClientBuilder.builder()
-  .withTarget("localhost:9081")
+  .withTarget(process.env.KESSEL_ENDPOINT)
   .withInsecureCredentials()
   // .withKeepAlive(10000, 5000, true)
   // .withCredentials(ChannelCredentials.createSsl())

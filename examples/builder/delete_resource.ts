@@ -1,9 +1,9 @@
-import { DeleteResourceRequest } from "kessel-sdk/kessel/inventory/v1beta2/delete_resource_request";
-
-import { ClientBuilder } from "kessel-sdk/kessel/inventory/v1beta2";
+import { DeleteResourceRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/delete_resource_request";
+import { ClientBuilder } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2";
+import "dotenv/config";
 
 const client = ClientBuilder.builder()
-  .withTarget("localhost:9081")
+  .withTarget(process.env.KESSEL_ENDPOINT)
   .withInsecureCredentials()
   // .withKeepAlive(10000, 5000, true)
   // .withCredentials(ChannelCredentials.createSsl())

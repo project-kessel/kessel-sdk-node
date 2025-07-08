@@ -3,9 +3,10 @@ import { ResourceReference } from "@project-kessel/kessel-sdk/kessel/inventory/v
 import { SubjectReference } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/subject_reference";
 import { CheckForUpdateRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/check_for_update_request";
 import { ChannelCredentials } from "@grpc/grpc-js";
+import "dotenv/config";
 
 const stub = new KesselInventoryServiceClient(
-  "localhost:9081",
+  process.env.KESSEL_ENDPOINT,
   ChannelCredentials.createInsecure(),
   {
     // Channel options

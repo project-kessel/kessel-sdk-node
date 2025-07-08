@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { KesselInventoryServiceClient } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/inventory_service";
 import { ResourceReference } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/resource_reference";
 import { SubjectReference } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/subject_reference";
@@ -5,7 +6,7 @@ import { CheckRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta
 import { ChannelCredentials } from "@grpc/grpc-js";
 
 const stub = new KesselInventoryServiceClient(
-  "localhost:9081",
+  process.env.KESSEL_ENDPOINT,
   ChannelCredentials.createInsecure(),
   {
     // Channel options

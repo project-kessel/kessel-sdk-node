@@ -1,9 +1,10 @@
 import { KesselInventoryServiceClient } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/inventory_service";
 import { DeleteResourceRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/delete_resource_request";
 import { ChannelCredentials } from "@grpc/grpc-js";
+import "dotenv/config";
 
 const stub = new KesselInventoryServiceClient(
-  "localhost:9081",
+  process.env.KESSEL_ENDPOINT,
   ChannelCredentials.createInsecure(),
   {
     // Channel options
