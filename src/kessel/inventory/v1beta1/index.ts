@@ -5,17 +5,82 @@ import { KesselK8sPolicyServiceClient } from "./resources/k8s_policies_service";
 import { KesselNotificationsIntegrationServiceClient } from "./resources/notifications_integrations_service";
 import { KesselRhelHostServiceClient } from "./resources/rhel_hosts_service";
 
+/**
+ * Client builder for the Kessel K8s Policy Propagation Relationship Service (v1beta1).
+ *
+ * This service manages relationships between K8s policies and clusters,
+ * specifically tracking policy propagation.
+ *
+ * @example
+ * ```typescript
+ * const client = KesselK8SPolicyIsPropagatedToK8SClusterClientBuilder.builder()
+ *   .withTarget("localhost:9000")
+ *   .build();
+ * ```
+ */
 export const KesselK8SPolicyIsPropagatedToK8SClusterClientBuilder =
   ClientBuilderFactory(KesselK8SPolicyIsPropagatedToK8SClusterServiceClient);
+
+/**
+ * Client builder for the Kessel K8s Cluster Resource Service (v1beta1).
+ *
+ * This service manages Kubernetes cluster resources in the inventory.
+ *
+ * @example
+ * ```typescript
+ * const client = KesselK8sClusterClientBuilder.builder()
+ *   .withTarget("localhost:9000")
+ *   .build();
+ * ```
+ */
 export const KesselK8sClusterClientBuilder = ClientBuilderFactory(
   KesselK8sClusterServiceClient,
 );
+
+/**
+ * Client builder for the Kessel K8s Policy Resource Service (v1beta1).
+ *
+ * This service manages Kubernetes policy resources in the inventory.
+ *
+ * @example
+ * ```typescript
+ * const client = KesselK8sPolicyClientBuilder.builder()
+ *   .withTarget("localhost:9000")
+ *   .build();
+ * ```
+ */
 export const KesselK8sPolicyClientBuilder = ClientBuilderFactory(
   KesselK8sPolicyServiceClient,
 );
+
+/**
+ * Client builder for the Kessel Notifications Integration Resource Service (v1beta1).
+ *
+ * This service manages notification integration resources in the inventory.
+ *
+ * @example
+ * ```typescript
+ * const client = KesselNotificationsIntegrationClientBuilder.builder()
+ *   .withTarget("localhost:9000")
+ *   .build();
+ * ```
+ */
 export const KesselNotificationsIntegrationClientBuilder = ClientBuilderFactory(
   KesselNotificationsIntegrationServiceClient,
 );
+
+/**
+ * Client builder for the Kessel RHEL Host Resource Service (v1beta1).
+ *
+ * This service manages Red Hat Enterprise Linux host resources in the inventory.
+ *
+ * @example
+ * ```typescript
+ * const client = KesselRhelHostClientBuilder.builder()
+ *   .withTarget("localhost:9000")
+ *   .build();
+ * ```
+ */
 export const KesselRhelHostClientBuilder = ClientBuilderFactory(
   KesselRhelHostServiceClient,
 );

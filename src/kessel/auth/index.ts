@@ -8,6 +8,23 @@ interface TokenData {
   expiresAt: number;
 }
 
+/**
+ * Handles OAuth 2.0 Client Credentials flow for authentication.
+ *
+ * This class manages token retrieval, caching, and automatic refresh for OAuth authentication.
+ * It performs OAuth discovery to find the token endpoint and caches tokens until near expiration.
+ *
+ * @example
+ * ```typescript
+ * const tokenRetriever = new OAuthTokenRetriever({
+ *   clientId: "my-client-id",
+ *   clientSecret: "my-client-secret",
+ *   issuerUrl: "https://auth.example.com"
+ * });
+ *
+ * const token = await tokenRetriever.getNextToken();
+ * ```
+ */
 export class OAuthTokenRetriever {
   private tokenCache?: TokenData;
   private authServer: oauth.AuthorizationServer;
@@ -16,8 +33,19 @@ export class OAuthTokenRetriever {
   private clientCredentialsGrantRequest: typeof oauth.clientCredentialsGrantRequest;
   private processClientCredentialsResponse: typeof oauth.processClientCredentialsResponse;
 
+  /**
+   * Creates a new OAuthTokenRetriever instance.
+   *
+   * @param auth - The OAuth configuration object
+   */
   constructor(readonly auth: ClientConfigAuth) {}
 
+  /**
+   * Ensures the OAuth client is initialized by performing discovery.
+   * This method is called automatically by getNextToken() and is idempotent.
+   *
+   * @throws {Error} If the token endpoint cannot be discovered from the issuer URL
+   */
   public async ensureIsInitialized() {
     if (!this.initialized) {
       const oauth = await import("oauth4webapi");
@@ -43,6 +71,11 @@ export class OAuthTokenRetriever {
     }
   }
 
+  /**
+   * Checks if the current cached token is valid and not near expiration.
+   *
+   * @returns true if the cached token is valid and not near expiration, false otherwise
+   */
   isCacheValid(): boolean {
     if (
       this.tokenCache &&
@@ -52,6 +85,18 @@ export class OAuthTokenRetriever {
     }
   }
 
+  /**
+   * Gets a valid access token, fetching a new one if necessary.
+   *
+   * This method will:
+   * 1. Initialize the OAuth client if not already done
+   * 2. Return the cached token if it's still valid
+   * 3. Fetch a new token from the OAuth server if needed
+   * 4. Cache the new token for future use
+   *
+   * @returns A promise that resolves to a valid access token
+   * @throws {Error} If token retrieval fails
+   */
   async getNextToken(): Promise<string> {
     await this.ensureIsInitialized();
 

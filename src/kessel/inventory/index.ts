@@ -83,9 +83,27 @@ export type ClientConfigCredentials =
       rejectUnauthorized?: boolean;
     };
 
+/**
+ * Configuration for OAuth 2.0 Client Credentials authentication.
+ */
 export type ClientConfigAuth = {
+  /**
+   * The OAuth client identifier.
+   */
   clientId: string;
+
+  /**
+   * The OAuth client secret.
+   */
   clientSecret: string;
+
+  /**
+   * The OAuth issuer URL for discovery.
+   * Should be the base URL of the OAuth provider.
+   *
+   * @example "https://auth.example.com"
+   * @example "https://sso.server/auth/realms/my-realm"
+   */
   issuerUrl: string;
 };
 

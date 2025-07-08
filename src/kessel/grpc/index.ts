@@ -73,7 +73,12 @@ type PromisifyClientMethod<T> =
     ? PromisifiedClientMethod<TRequest, TResponse, TMetadata, TOptions>
     : T;
 
-// Loops every method of the client and runs PromisifyMethod on it
+/**
+ * Type that represents a promisified version of a gRPC client.
+ * Transforms callback-based methods into promise-based methods while preserving other properties.
+ *
+ * @template T - The original client type, defaults to Client
+ */
 export type PromisifiedClient<T = Client> = {
   [K in keyof T]: T[K] extends (...args: unknown[]) => unknown
     ? PromisifyClientMethod<T[K]>
@@ -152,7 +157,11 @@ export const promisifyClient = <T extends Client>(
   return new Proxy(client, handler) as PromisifiedClient<T>;
 };
 
+/**
+ * Type representing valid gRPC channel option keys.
+ */
 export type ValidChannelOption = keyof typeof recognizedOptions;
+
 type ValidChannelOptionValue<T extends ValidChannelOption> = ChannelOptions[T];
 
 export interface GRpcClientConfig extends ClientConfig {
@@ -234,11 +243,20 @@ export abstract class GRpcClientBuilder<T> {
     };
   }
 
+  /**
+   * Protected constructor that initializes the builder with default configuration.
+   * Can only be called by subclasses.
+   */
   protected constructor() {
     this.withKeepAlive(defaultKeepAlive());
     this.withCredentialsConfig(defaultCredentials());
   }
 
+  /**
+   * Validates the current configuration and throws an error if required fields are missing.
+   *
+   * @throws {IncompleteKesselConfigurationError} If required configuration fields are missing
+   */
   protected validate() {
     const missingFields: Array<string> = [];
 
@@ -251,6 +269,12 @@ export abstract class GRpcClientBuilder<T> {
     }
   }
 
+  /**
+   * Creates a gRPC interceptor that handles OAuth authentication.
+   *
+   * @returns A gRPC interceptor that automatically adds authentication headers
+   * @throws {Error} If called without valid auth configuration
+   */
   protected createAuthInterceptor(): Interceptor {
     if (!this._auth) {
       throw new Error(
@@ -448,6 +472,21 @@ export abstract class GRpcClientBuilder<T> {
     return this;
   }
 
+  /**
+   * Configures OAuth 2.0 authentication for the client.
+   *
+   * @param auth - The OAuth configuration object
+   * @returns The ClientBuilder instance for method chaining
+   *
+   * @example
+   * ```typescript
+   * builder.withAuth({
+   *   clientId: "your-client-id",
+   *   clientSecret: "your-client-secret",
+   *   issuerUrl: "https://auth.example.com/oauth2"
+   * })
+   * ```
+   */
   public withAuth(auth: ClientConfigAuth): this {
     this._auth = auth;
     return this;
@@ -506,6 +545,25 @@ export abstract class GRpcClientBuilder<T> {
     return this;
   }
 
+  /**
+   * Configures the client builder using a configuration object.
+   *
+   * @param config - The configuration object containing all settings
+   * @returns The ClientBuilder instance for method chaining
+   *
+   * @example
+   * ```typescript
+   * const config = {
+   *   target: "localhost:9000",
+   *   credentials: { type: "insecure" },
+   *   keepAlive: { timeMs: 5000, timeoutMs: 2000 },
+   *   channelOptions: {
+   *     "grpc.max_receive_message_length": 4 * 1024 * 1024
+   *   }
+   * };
+   * builder.withConfig(config)
+   * ```
+   */
   public withConfig(config: GRpcClientConfig): this {
     this.withTarget(config.target)
       .withKeepAlive(config.keepAlive)
@@ -522,13 +580,55 @@ export abstract class GRpcClientBuilder<T> {
     return this;
   }
 
+  /**
+   * Builds and returns a configured client instance.
+   * This method must be implemented by concrete builder classes.
+   *
+   * @returns A configured client instance
+   * @throws {IncompleteKesselConfigurationError} If required configuration is missing
+   *
+   * @example
+   * ```typescript
+   * const client = builder
+   *   .withTarget("localhost:9000")
+   *   .withInsecureCredentials()
+   *   .build();
+   * ```
+   */
   public abstract build(): T;
 }
 
+/**
+ * Interface for client builder classes that provide a static builder() method.
+ *
+ * @template T - The builder type
+ */
 export interface ClientBuilderInterface<T> {
+  /**
+   * Creates a new instance of the builder.
+   *
+   * @returns A new builder instance
+   */
   builder(): T;
 }
 
+/**
+ * Factory function that creates a client builder class for a specific gRPC service.
+ *
+ * @template T - The gRPC client type that extends Client
+ * @param ctor - The constructor function for the gRPC client
+ * @returns A class that extends GRpcClientBuilder with static builder() method
+ *
+ * @example
+ * ```typescript
+ * import { KesselInventoryServiceClient } from "./inventory_service";
+ *
+ * const ClientBuilder = ClientBuilderFactory(KesselInventoryServiceClient);
+ * const client = ClientBuilder.builder()
+ *   .withTarget("localhost:9000")
+ *   .build();
+ * ```
+ */
 export const ClientBuilderFactory = <T extends Client>(
   ctor: new (...args: ConstructorParameters<typeof Client>) => T,
 ): typeof GRpcClientBuilder<PromisifiedClient<T>> &
