@@ -44,9 +44,7 @@ const response = await client.check({
 The Kessel SDK uses a fluent builder pattern to create and configure gRPC clients. The builder provides type-safe
 configuration options and returns fully promisified clients for use with modern async/await syntax.
 
-### Core Builder Class
-
-All client builders extend the `GRpcClientBuilder<T>` abstract class, which provides:
+Client builder provides:
 
 - **Fluent API**: Method chaining for easy configuration
 - **Type Safety**: Full TypeScript support with compile-time validation
