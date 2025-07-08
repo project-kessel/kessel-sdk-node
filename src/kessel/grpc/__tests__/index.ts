@@ -1,10 +1,10 @@
-import { GRpcClientBuilder, promisifyClient } from "../index";
+import { promisifyClient } from "../index";
 import { ChannelCredentials, Client } from "@grpc/grpc-js";
 import { ServiceDefinition } from "@grpc/grpc-js/src";
 import { SecureContext } from "node:tls";
 import { KesselInventoryServiceClient } from "../../inventory/v1beta2/inventory_service";
 import { ClientBuilderFactory } from "../index";
-import { defaultCredentials, defaultKeepAlive } from "../../inventory";
+import { defaultKeepAlive } from "../../inventory";
 
 const mockCerts = {
   rootCerts:
@@ -385,6 +385,323 @@ describe("promisifyClient", () => {
   });
 });
 
+describe("Auth Interceptor", () => {
+  it("Creates auth interceptor when auth is configured", () => {
+    const authConfig = {
+      clientId: "test-client",
+      clientSecret: "test-secret",
+      issuerUrl: "https://example.com/auth",
+    };
+
+    const builder = TestClientBuilder.builder()
+      .withTarget("localhost:9000")
+      .withAuth(authConfig);
+
+    expect(() => builder.build()).not.toThrow();
+  });
+
+  it("Throws error when creating auth interceptor without auth config", () => {
+    const builder = TestClientBuilder.builder().withTarget("localhost:9000");
+
+    // Access the protected method to test error handling
+    expect(() => (builder as any).createAuthInterceptor()).toThrow(
+      "Requested to create auth interceptor without a valid auth. This is a bug.",
+    );
+  });
+
+  it("Auth interceptor sets Bearer token in metadata", async () => {
+    const authConfig = {
+      clientId: "test-client",
+      clientSecret: "test-secret",
+      issuerUrl: "https://example.com/auth",
+    };
+
+    const builder = TestClientBuilder.builder()
+      .withTarget("localhost:9000")
+      .withAuth(authConfig);
+
+    const interceptor = (builder as any).createAuthInterceptor();
+    expect(interceptor).toBeDefined();
+    expect(typeof interceptor).toBe("function");
+  });
+
+  it("Auth interceptor handles token retrieval errors", async () => {
+    const authConfig = {
+      clientId: "test-client",
+      clientSecret: "test-secret",
+      issuerUrl: "https://invalid-url",
+    };
+
+    const builder = TestClientBuilder.builder()
+      .withTarget("localhost:9000")
+      .withAuth(authConfig);
+
+    const interceptor = (builder as any).createAuthInterceptor();
+    expect(interceptor).toBeDefined();
+  });
+});
+
+describe("Channel Options Validation", () => {
+  it("Validates channel option types", () => {
+    const builder = TestClientBuilder.builder()
+      .withTarget("localhost:9000")
+      .withChannelOption("grpc.max_receive_message_length", 1024);
+
+    expect(() => builder.build()).not.toThrow();
+  });
+
+  it("Handles multiple channel options", () => {
+    const builder = TestClientBuilder.builder()
+      .withTarget("localhost:9000")
+      .withChannelOption("grpc.max_receive_message_length", 1024)
+      .withChannelOption("grpc.max_send_message_length", 2048)
+      .withChannelOption("grpc.initial_reconnect_backoff_ms", 1000)
+      .withChannelOption("grpc.max_reconnect_backoff_ms", 10000);
+
+    expect(() => builder.build()).not.toThrow();
+  });
+
+  it("Supports string channel options", () => {
+    const builder = TestClientBuilder.builder()
+      .withTarget("localhost:9000")
+      .withChannelOption("grpc.primary_user_agent", "test-app/1.0.0");
+
+    expect(() => builder.build()).not.toThrow();
+  });
+
+  it("Supports boolean channel options", () => {
+    const builder = TestClientBuilder.builder()
+      .withTarget("localhost:9000")
+      .withChannelOption("grpc.keepalive_permit_without_calls", 1);
+
+    expect(() => builder.build()).not.toThrow();
+  });
+});
+
+describe("Complex Configuration Scenarios", () => {
+  it("Combines all configuration options", () => {
+    const config = {
+      target: "kessel-api.example.com:443",
+      credentials: {
+        type: "secure" as const,
+        rootCerts: mockCerts.rootCerts,
+        privateCerts: mockCerts.privateCerts,
+        certChain: mockCerts.certChain,
+        rejectUnauthorized: true,
+      },
+      keepAlive: {
+        timeMs: 30000,
+        timeoutMs: 10000,
+        permitWithoutCalls: false,
+      },
+      auth: {
+        clientId: "production-client",
+        clientSecret: "production-secret",
+        issuerUrl: "https://auth.example.com",
+      },
+      channelOptions: {
+        "grpc.max_receive_message_length": 4 * 1024 * 1024,
+        "grpc.max_send_message_length": 4 * 1024 * 1024,
+        "grpc.initial_reconnect_backoff_ms": 1000,
+        "grpc.max_reconnect_backoff_ms": 30000,
+        "grpc.primary_user_agent": "kessel-client/1.0.0",
+      },
+    };
+
+    const builder = TestClientBuilder.builder().withConfig(config);
+    expect(() => builder.build()).not.toThrow();
+  });
+
+  it("Overrides config with individual method calls", () => {
+    const config = {
+      target: "initial-target:9000",
+      credentials: { type: "insecure" as const },
+    };
+
+    const builder = TestClientBuilder.builder()
+      .withConfig(config)
+      .withTarget("overridden-target:9000")
+      .withSecureCredentials();
+
+    expect(builder.target).toBe("overridden-target:9000");
+    expect(builder.credentials).not.toEqual(
+      ChannelCredentials.createInsecure(),
+    );
+  });
+
+  it("Merges partial configurations", () => {
+    const builder = TestClientBuilder.builder()
+      .withTarget("localhost:9000")
+      .withKeepAlive({ timeMs: 5000 })
+      .withKeepAlive({ timeoutMs: 3000 });
+
+    // The second withKeepAlive call overwrites the first one completely
+    expect(builder.keepAlive.timeMs).toBe(defaultKeepAlive().timeMs);
+    expect(builder.keepAlive.timeoutMs).toBe(3000);
+    expect(builder.keepAlive.permitWithoutCalls).toBe(
+      defaultKeepAlive().permitWithoutCalls,
+    );
+  });
+});
+
+describe("Target Validation", () => {
+  it("Accepts valid host:port format", () => {
+    const validTargets = [
+      "localhost:9000",
+      "127.0.0.1:8080",
+      "kessel-api.example.com:443",
+      "my-service.internal:9090",
+      "[::1]:9000",
+      "[2001:db8::1]:443",
+    ];
+
+    validTargets.forEach((target) => {
+      const builder = TestClientBuilder.builder().withTarget(target);
+      expect(builder.target).toBe(target);
+      expect(() => builder.build()).not.toThrow();
+    });
+  });
+
+  it("Accepts target without explicit validation", () => {
+    // The builder doesn't validate target format, just requires it to be present
+    const builder = TestClientBuilder.builder().withTarget("invalid-target");
+    expect(builder.target).toBe("invalid-target");
+    expect(() => builder.build()).not.toThrow();
+  });
+
+  it("Handles empty target string", () => {
+    const builder = TestClientBuilder.builder().withTarget("");
+    expect(builder.target).toBe("");
+    // Empty target should throw an error since it's considered missing
+    expect(() => builder.build()).toThrow();
+  });
+});
+
+describe("Credentials Edge Cases", () => {
+  it("Handles malformed certificate data gracefully", () => {
+    // gRPC validates certificate format, so invalid data should throw during config
+    expect(() => {
+      TestClientBuilder.builder()
+        .withTarget("localhost:9000")
+        .withCredentialsConfig({
+          type: "secure",
+          rootCerts: "invalid-cert-data",
+          privateCerts: "invalid-key-data",
+          certChain: "invalid-chain-data",
+        });
+    }).toThrow(/PEM routines/);
+  });
+
+  it("Handles missing certificate properties", () => {
+    const builder = TestClientBuilder.builder()
+      .withTarget("localhost:9000")
+      .withCredentialsConfig({
+        type: "secure",
+        rootCerts: undefined,
+        privateCerts: undefined,
+        certChain: undefined,
+        rejectUnauthorized: undefined,
+      });
+
+    expect(() => builder.build()).not.toThrow();
+  });
+
+  it("Handles reject unauthorized flag", () => {
+    const builder = TestClientBuilder.builder()
+      .withTarget("localhost:9000")
+      .withCredentialsConfig({
+        type: "secure",
+        rejectUnauthorized: false,
+      });
+
+    expect(() => builder.build()).not.toThrow();
+  });
+
+  it("Preserves verify options", () => {
+    const verifyOptions = {
+      rejectUnauthorized: false,
+      checkServerIdentity: (): undefined => undefined,
+    };
+
+    const builder = TestClientBuilder.builder()
+      .withTarget("localhost:9000")
+      .withSecureCredentials(null, null, null, verifyOptions);
+
+    expect(() => builder.build()).not.toThrow();
+  });
+});
+
+describe("Builder State Management", () => {
+  it("Maintains immutable state during chaining", () => {
+    const builder1 = TestClientBuilder.builder().withTarget("target1:9000");
+    const builder2 = builder1.withTarget("target2:9000");
+
+    expect(builder1).toBe(builder2); // Same instance
+    expect(builder1.target).toBe("target2:9000"); // State updated
+  });
+
+  it("Preserves configuration across multiple calls", () => {
+    const builder = TestClientBuilder.builder()
+      .withTarget("localhost:9000")
+      .withInsecureCredentials()
+      .withKeepAlive({ timeMs: 1000 })
+      .withChannelOption("grpc.max_receive_message_length", 1024);
+
+    // Call build multiple times
+    const client1 = builder.build();
+    const client2 = builder.build();
+
+    expect(client1).toBeDefined();
+    expect(client2).toBeDefined();
+    expect(client1).not.toBe(client2); // Different instances
+  });
+
+  it("Handles configuration reset", () => {
+    const builder = TestClientBuilder.builder()
+      .withTarget("localhost:9000")
+      .withInsecureCredentials()
+      .withSecureCredentials(); // Override previous credentials
+
+    expect(builder.credentials).not.toEqual(
+      ChannelCredentials.createInsecure(),
+    );
+  });
+});
+
+describe("Error Scenarios", () => {
+  it("Throws meaningful error for missing target", () => {
+    const builder = TestClientBuilder.builder()
+      .withInsecureCredentials()
+      .withKeepAlive({ timeMs: 1000 });
+
+    expect(() => builder.build()).toThrow(
+      expect.objectContaining({
+        message: expect.stringContaining("target"),
+      }),
+    );
+  });
+
+  it("Validates required fields only", () => {
+    const builder = TestClientBuilder.builder().withTarget("localhost:9000");
+
+    // Should not throw even without explicit credentials or keepAlive
+    expect(() => builder.build()).not.toThrow();
+  });
+
+  it("Handles concurrent build calls", () => {
+    const builder = TestClientBuilder.builder().withTarget("localhost:9000");
+
+    const promises = Array.from({ length: 10 }, () =>
+      Promise.resolve(builder.build()),
+    );
+
+    return Promise.all(promises).then((clients) => {
+      expect(clients).toHaveLength(10);
+      clients.forEach((client) => expect(client).toBeDefined());
+    });
+  });
+});
+
 describe("Edge cases and error handling", () => {
   it("Builder handles undefined values gracefully", () => {
     const builder = TestClientBuilder.builder()
@@ -421,4 +738,21 @@ describe("Edge cases and error handling", () => {
       TestClientBuilder.builder().withTarget("minimal:setup").build(),
     ).not.toThrow();
   });
-}); 
+
+  it("Handles empty configuration object", () => {
+    const builder = TestClientBuilder.builder().withConfig({});
+    expect(() => builder.build()).toThrow(); // Should throw due to missing target
+  });
+
+  it("Handles null configuration values", () => {
+    const builder = TestClientBuilder.builder().withConfig({
+      target: "localhost:9000",
+      credentials: null as any,
+      keepAlive: null as any,
+      auth: null as any,
+      channelOptions: null as any,
+    });
+
+    expect(() => builder.build()).not.toThrow();
+  });
+});

@@ -53,6 +53,8 @@ export class OAuthTokenRetriever {
   }
 
   async getNextToken(): Promise<string> {
+    await this.ensureIsInitialized();
+
     if (this.isCacheValid()) {
       return this.tokenCache.accessToken;
     }

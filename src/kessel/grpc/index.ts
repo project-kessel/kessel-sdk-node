@@ -265,7 +265,6 @@ export abstract class GRpcClientBuilder<T> {
       return new InterceptingCall(nextCall(options), {
         start: async (metadata, listener, next) => {
           try {
-            await tokenRetriever.ensureIsInitialized();
             const token = await tokenRetriever.getNextToken();
 
             metadata.set("Authorization", `Bearer ${token}`);
