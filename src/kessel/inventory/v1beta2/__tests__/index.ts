@@ -1,11 +1,13 @@
-import {
-  ClientBuilder,
-} from "../index";
+import { ClientBuilder } from "../index";
 import { ChannelCredentials, Client } from "@grpc/grpc-js";
 import { ServiceDefinition } from "@grpc/grpc-js/src";
 import { SecureContext } from "node:tls";
-import {defaultCredentials, defaultKeepAlive, IncompleteKesselConfigurationError} from "../../index";
-import {promisifyClient} from "../../../grpc";
+import {
+  defaultCredentials,
+  defaultKeepAlive,
+  IncompleteKesselConfigurationError,
+} from "../../index";
+import { promisifyClient } from "../../../grpc";
 
 const mockCerts = {
   rootCerts:
@@ -366,7 +368,7 @@ describe("Default functions", () => {
   it("defaultCredentials returns SSL credentials", () => {
     const credentials = defaultCredentials();
     expect(credentials).toEqual({
-      type: 'secure',
+      type: "secure",
     });
   });
 });

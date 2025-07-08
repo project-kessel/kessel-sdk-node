@@ -3,6 +3,9 @@ import {
   ChannelOptions,
   Client,
   ClientUnaryCall,
+  InterceptingCall,
+  Interceptor,
+  Metadata,
   ServiceError,
   VerifyOptions,
 } from "@grpc/grpc-js";
@@ -11,6 +14,7 @@ import { promisify } from "util";
 import { recognizedOptions } from "@grpc/grpc-js/src/channel-options";
 import {
   ClientConfig,
+  ClientConfigAuth,
   ClientConfigCredentials,
   ClientConfigKeepAlive,
   defaultCredentials,
@@ -18,6 +22,8 @@ import {
   IncompleteKesselConfigurationError,
 } from "../inventory";
 import { SecureContext } from "node:tls";
+import type * as oauth from "oauth4webapi";
+import { Status } from "@grpc/grpc-js/build/src/constants";
 
 interface CallbackClientMethod<
   TRequest = unknown,
@@ -161,6 +167,87 @@ export interface GRpcClientConfig extends ClientConfig {
   }>;
 }
 
+interface TokenData {
+  accessToken: string;
+  expiresAt: number;
+}
+
+const EXPIRATION_WINDOW = 20000; // 20 seconds in milliseconds
+
+class OAuthTokenRetriever {
+  private tokenCache?: TokenData;
+  private authServer: oauth.AuthorizationServer;
+  private initialized: boolean = false;
+  private ClientSecretPost: typeof oauth.ClientSecretPost;
+  private clientCredentialsGrantRequest: typeof oauth.clientCredentialsGrantRequest;
+  private processClientCredentialsResponse: typeof oauth.processClientCredentialsResponse;
+
+  constructor(readonly auth: ClientConfigAuth) {}
+
+  public async ensureIsInitialized() {
+    if (!this.initialized) {
+      const oauth = await import("oauth4webapi");
+      const issueUrl = new URL(this.auth.issuerUrl);
+
+      const response = await oauth.discoveryRequest(issueUrl);
+      this.authServer = await oauth.processDiscoveryResponse(
+        issueUrl,
+        response,
+      );
+      if (!this.authServer.token_endpoint) {
+        throw new Error(
+          "Token endpoint could not be discovered from issuer URL.",
+        );
+      }
+
+      this.ClientSecretPost = oauth.ClientSecretPost;
+      this.clientCredentialsGrantRequest = oauth.clientCredentialsGrantRequest;
+      this.processClientCredentialsResponse =
+        oauth.processClientCredentialsResponse;
+
+      this.initialized = true;
+    }
+  }
+
+  isCacheValid(): boolean {
+    if (
+      this.tokenCache &&
+      this.tokenCache.expiresAt > Date.now() + EXPIRATION_WINDOW
+    ) {
+      return true;
+    }
+  }
+
+  async getNextToken(): Promise<string> {
+    if (this.isCacheValid()) {
+      return this.tokenCache.accessToken;
+    }
+
+    const client: oauth.Client = { client_id: this.auth.clientId };
+    const clientAuth = this.ClientSecretPost(this.auth.clientSecret);
+    const parameters = new URLSearchParams();
+
+    const response = await this.clientCredentialsGrantRequest(
+      this.authServer,
+      client,
+      clientAuth,
+      parameters,
+    );
+    const result = await this.processClientCredentialsResponse(
+      this.authServer,
+      client,
+      response,
+    );
+
+    this.tokenCache = {
+      accessToken: result.access_token,
+      expiresAt: Date.now() + result.expires_in * 1000,
+    };
+
+    return this.tokenCache.accessToken;
+  }
+}
+
 /**
  * Builder class for creating configured Kessel Inventory Service clients.
  * Provides a fluent API for setting up gRPC client configuration and returns
@@ -193,6 +280,7 @@ export interface GRpcClientConfig extends ClientConfig {
 export abstract class GRpcClientBuilder<T> {
   protected _target: string | undefined;
   protected _credentials: ChannelCredentials | undefined;
+  protected _auth?: ClientConfigAuth;
   protected readonly _channelOptions: ChannelOptions = {};
 
   /**
@@ -244,6 +332,39 @@ export abstract class GRpcClientBuilder<T> {
     }
   }
 
+  protected createAuthInterceptor(): Interceptor {
+    if (!this._auth) {
+      throw new Error(
+        "Requested to create auth interceptor without a valid auth. This is a bug.",
+      );
+    }
+
+    const auth = { ...this._auth };
+    const tokenRetriever = new OAuthTokenRetriever(auth);
+
+    return (options, nextCall): InterceptingCall => {
+      return new InterceptingCall(nextCall(options), {
+        start: async (metadata, listener, next) => {
+          try {
+            await tokenRetriever.ensureIsInitialized();
+            const token = await tokenRetriever.getNextToken();
+
+            metadata.set("Authorization", `Bearer ${token}`);
+
+            next(metadata, listener);
+          } catch (error) {
+            const status = {
+              code: Status.UNAUTHENTICATED,
+              details: `Failed to acquire authentication token: ${error}`,
+              metadata: new Metadata(),
+            };
+            listener.onReceiveStatus(status);
+          }
+        },
+      });
+    };
+  }
+
   /**
    * Sets the target server address.
    *
@@ -256,7 +377,7 @@ export abstract class GRpcClientBuilder<T> {
    * builder.withTarget("kessel-api.example.com:443")
    * ```
    */
-  public withTarget(target: string): GRpcClientBuilder<T> {
+  public withTarget(target: string): this {
     this._target = target;
     return this;
   }
@@ -277,9 +398,7 @@ export abstract class GRpcClientBuilder<T> {
    * builder.withCredentials(ChannelCredentials.createInsecure())
    * ```
    */
-  public withCredentials(
-    credentials: ChannelCredentials,
-  ): GRpcClientBuilder<T> {
+  public withCredentials(credentials: ChannelCredentials): this {
     this._credentials = credentials;
     return this;
   }
@@ -295,7 +414,7 @@ export abstract class GRpcClientBuilder<T> {
    * builder.withInsecureCredentials()
    * ```
    */
-  public withInsecureCredentials(): GRpcClientBuilder<T> {
+  public withInsecureCredentials(): this {
     this._credentials = ChannelCredentials.createInsecure();
     return this;
   }
@@ -330,7 +449,7 @@ export abstract class GRpcClientBuilder<T> {
     privateCerts?: Buffer | null,
     certChain?: Buffer | null,
     verifyOptions?: VerifyOptions,
-  ): GRpcClientBuilder<T> {
+  ): this {
     this._credentials = ChannelCredentials.createSsl(
       rootCerts,
       privateCerts,
@@ -362,7 +481,7 @@ export abstract class GRpcClientBuilder<T> {
   public withSecureContextCredentials(
     secureContext: SecureContext,
     verifyOptions?: VerifyOptions,
-  ): GRpcClientBuilder<T> {
+  ): this {
     this._credentials = ChannelCredentials.createFromSecureContext(
       secureContext,
       verifyOptions,
@@ -391,9 +510,7 @@ export abstract class GRpcClientBuilder<T> {
    * })
    * ```
    */
-  public withCredentialsConfig(
-    credentials: ClientConfigCredentials,
-  ): GRpcClientBuilder<T> {
+  public withCredentialsConfig(credentials: ClientConfigCredentials): this {
     switch (credentials.type) {
       case "insecure":
         this.withInsecureCredentials();
@@ -413,6 +530,11 @@ export abstract class GRpcClientBuilder<T> {
     return this;
   }
 
+  public withAuth(auth: ClientConfigAuth): this {
+    this._auth = auth;
+    return this;
+  }
+
   /**
    * Configures keep-alive settings for the gRPC connection.
    *
@@ -428,9 +550,7 @@ export abstract class GRpcClientBuilder<T> {
    * ```
    * @param keepAliveConfig
    */
-  public withKeepAlive(
-    keepAliveConfig: Partial<ClientConfigKeepAlive>,
-  ): GRpcClientBuilder<T> {
+  public withKeepAlive(keepAliveConfig: Partial<ClientConfigKeepAlive>): this {
     const defaultKeepAliveConfig = defaultKeepAlive();
     keepAliveConfig = { ...defaultKeepAliveConfig, ...keepAliveConfig };
     this._channelOptions["grpc.keepalive_time_ms"] = keepAliveConfig.timeMs;
@@ -488,33 +608,42 @@ export abstract class GRpcClientBuilder<T> {
 }
 
 export interface ClientBuilderInterface<T> {
-    builder(): T;
+  builder(): T;
 }
 
 export const ClientBuilderFactory = <T extends Client>(
   ctor: new (...args: ConstructorParameters<typeof Client>) => T,
-): typeof GRpcClientBuilder<PromisifiedClient<T>> & ClientBuilderInterface<GRpcClientBuilder<PromisifiedClient<T>>> => {
-    class ClientBuilder extends GRpcClientBuilder<PromisifiedClient<T>> {
-        /**
-         * Creates a new ClientBuilder instance with default configuration.
-         * @returns A new ClientBuilder instance
-         */
-        public static builder() {
-            return new this();
-        }
-
-        /**
-         * Builds and returns a configured, promisified client.
-         * @returns A promisified client instance ready for use with async/await
-         */
-        public build(): PromisifiedClient<T> {
-            this.validate();
-
-            return promisifyClient(
-                new ctor(this._target, this._credentials, this._channelOptions),
-            );
-        }
+): typeof GRpcClientBuilder<PromisifiedClient<T>> &
+  ClientBuilderInterface<GRpcClientBuilder<PromisifiedClient<T>>> => {
+  class ClientBuilder extends GRpcClientBuilder<PromisifiedClient<T>> {
+    /**
+     * Creates a new ClientBuilder instance with default configuration.
+     * @returns A new ClientBuilder instance
+     */
+    public static builder() {
+      return new this();
     }
 
-    return ClientBuilder;
+    /**
+     * Builds and returns a configured, promisified client.
+     * @returns A promisified client instance ready for use with async/await
+     */
+    public build(): PromisifiedClient<T> {
+      this.validate();
+      const interceptors: Array<Interceptor> = [];
+
+      if (this._auth) {
+        interceptors.push(this.createAuthInterceptor());
+      }
+
+      return promisifyClient(
+        new ctor(this._target, this._credentials, {
+          ...this._channelOptions,
+          interceptors: interceptors,
+        }),
+      );
+    }
+  }
+
+  return ClientBuilder;
 };

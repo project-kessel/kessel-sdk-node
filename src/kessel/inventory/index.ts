@@ -83,6 +83,12 @@ export type ClientConfigCredentials =
       rejectUnauthorized?: boolean;
     };
 
+export type ClientConfigAuth = {
+  clientId: string;
+  clientSecret: string;
+  issuerUrl: string;
+};
+
 /**
  * Complete configuration object for creating a Kessel Inventory Service client.
  */
@@ -106,6 +112,8 @@ export interface ClientConfig {
    * If not specified, uses default keep-alive settings.
    */
   keepAlive?: Partial<ClientConfigKeepAlive>;
+
+  auth?: ClientConfigAuth;
 }
 
 /**
