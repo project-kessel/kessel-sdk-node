@@ -2,11 +2,12 @@ import { KesselInventoryServiceClient } from "@project-kessel/kessel-sdk/kessel/
 
 import { SubjectReference } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/subject_reference";
 import { RepresentationType } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/representation_type";
-import { StreamedListObjectsRequest } from "kessel-sdk/kessel/inventory/v1beta2/streamed_list_objects_request";
+import { StreamedListObjectsRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/streamed_list_objects_request";
 import { ChannelCredentials } from "@grpc/grpc-js";
+import "dotenv/config";
 
 const stub = new KesselInventoryServiceClient(
-  "localhost:9081",
+  process.env.KESSEL_ENDPOINT,
   ChannelCredentials.createInsecure(),
   {
     // Channel options

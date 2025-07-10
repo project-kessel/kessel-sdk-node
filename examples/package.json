@@ -2,18 +2,26 @@
   "name": "kessel-sdk-examples",
   "version": "1.0.0",
   "scripts": {
-    "check": "tsx check.ts",
-    "check_for_update": "tsx check_for_update.ts",
-    "delete_resource": "tsx delete_resource.ts",
-    "report_resource": "tsx report_resource.ts",
-    "streamed_list_objects": "tsx streamed_list_objects.ts",
-    "promisify": "tsx promisify.ts"
+    "vanilla:check": "tsx vanilla/check.ts",
+    "vanilla:check_for_update": "tsx vanilla/check_for_update.ts",
+    "vanilla:delete_resource": "tsx vanilla/delete_resource.ts",
+    "vanilla:report_resource": "tsx vanilla/report_resource.ts",
+    "vanilla:streamed_list_objects": "tsx vanilla/streamed_list_objects.ts",
+    "vanilla:promisify": "tsx vanilla/promisify.ts",
+    "builder:check": "tsx builder/check.ts",
+    "builder:check_for_update": "tsx builder/check_for_update.ts",
+    "builder:delete_resource": "tsx builder/delete_resource.ts",
+    "builder:report_resource": "tsx builder/report_resource.ts",
+    "builder:streamed_list_objects": "tsx builder/streamed_list_objects.ts",
+    "builder:auth": "tsx builder/auth.ts",
+    "postinstall": "tsx setup.ts"
   },
   "author": "Josejulio Martínez",
   "license": "Apache-2.0",
   "description": "",
   "dependencies": {
-    "kessel-sdk": "file://..",
+    "@project-kessel/kessel-sdk": "file://..",
+    "dotenv": "^17.1.0",
     "tsx": "^4.20.2"
   },
   "private": true

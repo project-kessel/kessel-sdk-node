@@ -43,10 +43,10 @@ export default [
   },
   ...compat.extends("plugin:jest/recommended", "prettier").map((config) => ({
     ...config,
-    files: ["**/*.test.ts"],
+    files: ["**/*.test.ts", "**/__tests__/**/*.ts"],
   })),
   {
-    files: ["**/*.test.ts"],
+    files: ["**/*.test.ts", "**/__tests__/**/*.ts"],
 
     plugins: {
       jest,

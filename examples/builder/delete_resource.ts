@@ -1,14 +1,13 @@
-import { KesselInventoryServiceClient } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/inventory_service";
 import { DeleteResourceRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/delete_resource_request";
-import { ChannelCredentials } from "@grpc/grpc-js";
+import { ClientBuilder } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2";
+import "dotenv/config";
 
-const stub = new KesselInventoryServiceClient(
-  "localhost:9081",
-  ChannelCredentials.createInsecure(),
-  {
-    // Channel options
-  },
-);
+const client = ClientBuilder.builder()
+  .withTarget(process.env.KESSEL_ENDPOINT)
+  .withInsecureCredentials()
+  // .withKeepAlive(10000, 5000, true)
+  // .withCredentials(ChannelCredentials.createSsl())
+  .build();
 
 const deleteResourceRequest: DeleteResourceRequest = {
   reference: {
@@ -20,12 +19,13 @@ const deleteResourceRequest: DeleteResourceRequest = {
   },
 };
 
-stub.deleteResource(deleteResourceRequest, (error, response) => {
-  if (!error) {
+(async () => {
+  try {
+    const response = await client.deleteResource(deleteResourceRequest);
     console.log("Delete Resource response received successfully:");
     console.log(response);
-  } else {
+  } catch (error) {
     console.log("gRPC error occurred during Delete Resource:");
     console.log(`Exception:`, error);
   }
-});
+})();

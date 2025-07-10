@@ -6,9 +6,10 @@ import { RepresentationType } from "@project-kessel/kessel-sdk/kessel/inventory/
 import { StreamedListObjectsRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/streamed_list_objects_request";
 import { ChannelCredentials } from "@grpc/grpc-js";
 import { promisify } from "util";
+import "dotenv/config";
 
 const stub = new KesselInventoryServiceClient(
-  "localhost:9081",
+  process.env.KESSEL_ENDPOINT,
   ChannelCredentials.createInsecure(),
   {
     // Channel options

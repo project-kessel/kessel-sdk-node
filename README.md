@@ -1,169 +1,430 @@
 # Kessel SDK for Node.js
 
-This is the official Node.js SDK for [Project Kessel](https://github.com/project-kessel), a system for unifying APIs and experiences with fine-grained authorization, common inventory, and CloudEvents.
+A TypeScript/JavaScript SDK for connecting to Kessel services using gRPC with a fluent client builder API.
 
-This SDK provides a convenient client for interacting with the Kessel APIs from your Node.js or
-TypeScript application.
+## Table of Contents
 
-## Features
-
-- Typed API: Full TypeScript support for all API methods and data structures
-- gRPC Integration: Built on top of [@grpc/grpc-js](https://github.com/grpc/grpc-node/tree/master/packages/grpc-js)
-  for efficient and robust communication with the Kessel API.
-- Asynchronous Operations: All API methods are asynchronous, using either callbacks, promises or async iterators.
-
-## Prerequisites
-
-Before you begin, you will need:
-
-- Node.js
-- Access to a running instance of the Kessel API
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Client Builder](#client-builder)
+- [Configuration](#configuration)
+- [Authentication](#authentication)
+- [Examples](#examples)
+- [API Reference](#api-reference)
+- [Error Handling](#error-handling)
+- [Development](#development)
 
 ## Installation
 
-Install the Kessel SDK in your project. e.g. using npm:
-
 ```bash
-npm install --save kessel-sdk
+npm install @project-kessel/kessel-sdk
 ```
 
-## Usage
-
-1. **Create a client**
-
-First, you need to create a `KesselInventoryServiceClient` instance. This requires you to specify the host and port
-of your Kessel API instance and provide channel credentials for the gRPC connection.
+## Quick Start
 
 ```typescript
-import { KesselInventoryServiceClient } from "kessel-sdk";
-import { credentials } from "@grpc/grpc-js";
+import { ClientBuilder } from "@project-kessel/kessel-sdk/inventory/v1beta2";
 
-// Create secure credentials for a TLS-enabled Kessel API instance
-const creds = credentials.createSsl();
+// Create a client with minimal configuration
+const client = ClientBuilder.builder()
+  .withTarget("localhost:9000")
+  .withInsecureCredentials()
+  .build();
 
-// Or, for local development, you can use insecure credentials
-// const creds = credentials.createInsecure();
-
-const client = new KesselInventoryServiceClient(
-  "your-kessel-api.example.com:443",
-  creds,
-);
-```
-
-For more advanced configurations, you can also pass [channel options](https://www.npmjs.com/package/@grpc/grpc-js#supported-channel-options)
-to the client constructor.
-
-2. **Making API Calls**
-
-Once you have a client, you can call its methods to interact with the Kessel API. The following is an example of how to
-use the `check` method to see if a user has a specific permission for a resource.
-
-The `check` method takes a request object and a callback function. The request object specifies the `subject`
-(who is performing the action), the `relation` (the permission to check), and the `object` (the resource being accessed).
-
-```typescript
-const request = {
-  object: {
-    reporter: {
-      type: "rbac",
-    },
-    resourceId: "1234",
-    resourceType: "workspace",
-  },
-  relation: "inventory_host_view",
-  subject: {
-    reporter: {
-      type: "rbac",
-    },
-    resourceType: "principal",
-    resourceId: "localhost/1",
-  },
-};
-
-client.check(request, (error, response) => {
-  if (error) {
-    console.error("Failed to perform check:", error);
-    return;
-  }
-
-  if (response.allowed) {
-    console.log("Access granted!");
-  } else {
-    console.log("Access denied.");
-  }
+// Use the client with async/await
+const response = await client.check({
+  subject: { id: "user123", type: "user" },
+  resource: { id: "resource456", type: "document" },
+  action: "read",
 });
 ```
 
-### Using Promises
+## Client Builder
 
-For a more modern async/await workflow, you can use Node.js's util.promisify to wrap the client methods in promises.
+The Kessel SDK uses a fluent builder pattern to create and configure gRPC clients. The builder provides type-safe
+configuration options and returns fully promisified clients for use with modern async/await syntax.
+
+Client builder provides:
+
+- **Fluent API**: Method chaining for easy configuration
+- **Type Safety**: Full TypeScript support with compile-time validation
+- **Promisification**: Automatic conversion of callback-based gRPC methods to promises
+- **Validation**: Configuration validation before client creation
+- **Extensibility**: Support for custom interceptors and channel options
+
+## Configuration
+
+### Target Server
+
+The target server address is the only required configuration parameter:
 
 ```typescript
-import { promisify } from "util";
+// Basic target configuration
+.withTarget("localhost:9000")
+.withTarget("kessel.example.com:443")
+.withTarget("[::1]:9000")  // IPv6 address
+```
 
-const checkAsync = promisify(client.check).bind(client);
+### Credentials
 
-async function checkPermission() {
-  try {
-    const response = await checkAsync(request);
-    if (response.allowed) {
-      console.log("Access granted!");
-    } else {
-      console.log("Access denied.");
-    }
-  } catch (error) {
-    console.error("Failed to perform check:", error);
+#### Insecure Credentials (Development)
+
+```typescript
+// No TLS encryption - use only for local development
+.withInsecureCredentials()
+```
+
+#### Secure Credentials (Production)
+
+```typescript
+// Use system default root certificates
+.withSecureCredentials()
+
+// Custom root certificate
+const rootCert = Buffer.from(rootCertPem, 'utf8');
+.withSecureCredentials(rootCert)
+
+// Client certificate authentication
+const rootCert = Buffer.from(rootCertPem, 'utf8');
+const privateKey = Buffer.from(privateKeyPem, 'utf8');
+const certChain = Buffer.from(certChainPem, 'utf8');
+.withSecureCredentials(rootCert, privateKey, certChain)
+
+// Custom verification options
+.withSecureCredentials(rootCert, null, null, {
+  rejectUnauthorized: false,
+  checkServerIdentity: (hostname, cert) => {
+    // Custom certificate validation logic
+  }
+})
+```
+
+#### Credentials from SecureContext
+
+```typescript
+import { createSecureContext } from 'tls';
+
+const secureContext = createSecureContext({
+  cert: certPemString,
+  key: keyPemString,
+  ca: caPemString
+});
+
+.withSecureContextCredentials(secureContext)
+```
+
+#### Configuration Object
+
+```typescript
+// Insecure configuration
+.withCredentialsConfig({ type: "insecure" })
+
+// Secure configuration
+.withCredentialsConfig({
+  type: "secure",
+  rootCerts: rootCertPemString,
+  privateCerts: privateKeyPemString,
+  certChain: certChainPemString,
+  rejectUnauthorized: true
+})
+```
+
+### Keep-Alive Settings
+
+Configure connection keep-alive behavior:
+
+```typescript
+.withKeepAlive({
+  timeMs: 30000,              // Ping interval (30 seconds)
+  timeoutMs: 10000,           // Ping timeout (10 seconds)
+  permitWithoutCalls: false   // Don't ping when idle
+})
+```
+
+**Default Values:**
+
+- `timeMs`: 10000 (10 seconds)
+- `timeoutMs`: 5000 (5 seconds)
+- `permitWithoutCalls`: true
+
+### Channel Options
+
+Configure low-level gRPC channel options:
+
+```typescript
+// Set custom user agent
+.withChannelOption('grpc.primary_user_agent', 'my-app/1.0.0')
+
+// Configure message size limits
+.withChannelOption('grpc.max_receive_message_length', 4 * 1024 * 1024)
+.withChannelOption('grpc.max_send_message_length', 4 * 1024 * 1024)
+
+// Configure reconnection behavior
+.withChannelOption('grpc.initial_reconnect_backoff_ms', 1000)
+.withChannelOption('grpc.max_reconnect_backoff_ms', 30000)
+```
+
+### Complete Configuration Object
+
+Use a configuration object for complex setups:
+
+```typescript
+import { ClientConfig } from "@project-kessel/kessel-sdk/inventory";
+
+const config: ClientConfig = {
+  target: "kessel-api.example.com:443",
+  credentials: {
+    type: "secure",
+    rootCerts: rootCertPem,
+    rejectUnauthorized: true,
+  },
+  keepAlive: {
+    timeMs: 30000,
+    timeoutMs: 15000,
+    permitWithoutCalls: false,
+  },
+  auth: {
+    clientId: "my-service",
+    clientSecret: "my-secret",
+    issuerUrl: "https://auth.example.com",
+  },
+  channelOptions: {
+    "grpc.max_receive_message_length": 4 * 1024 * 1024,
+    "grpc.primary_user_agent": "my-app/1.0.0",
+  },
+};
+
+const client = ClientBuilder.builder().withConfig(config).build();
+```
+
+## Authentication
+
+The SDK supports OAuth 2.0 Client Credentials flow for authentication:
+
+### Basic OAuth Configuration
+
+```typescript
+.withAuth({
+  clientId: "your-client-id",
+  clientSecret: "your-client-secret",
+  issuerUrl: "https://auth.example.com"
+})
+```
+
+### OAuth Features
+
+- **Automatic Token Management**: Tokens are automatically fetched and refreshed
+- **Token Caching**: Tokens are cached and reused until near expiration
+- **Expiration Window**: Tokens are refreshed 20 seconds before expiration
+
+### OAuth Example
+
+```typescript
+const client = ClientBuilder.builder()
+  .withTarget("kessel-api.example.com:443")
+  .withSecureCredentials()
+  .withAuth({
+    clientId: "inventory-client",
+    clientSecret: process.env.CLIENT_SECRET,
+    issuerUrl: "https://sso.server/auth/realms/my-realm",
+  })
+  .build();
+
+// The client automatically handles authentication
+const response = await client.check(request);
+```
+
+## Examples
+
+### Development Setup
+
+```typescript
+import { ClientBuilder } from "@project-kessel/kessel-sdk/inventory/v1beta2";
+
+const client = ClientBuilder.builder()
+  .withTarget("localhost:9000")
+  .withInsecureCredentials()
+  .withKeepAlive({
+    timeMs: 5000,
+    timeoutMs: 2000,
+    permitWithoutCalls: true,
+  })
+  .build();
+```
+
+### Production Setup
+
+```typescript
+import { ClientBuilder } from "@project-kessel/kessel-sdk/inventory/v1beta2";
+
+const client = ClientBuilder.builder()
+  .withTarget("kessel-inventory.prod.example.com:443")
+  .withSecureCredentials()
+  .withKeepAlive({
+    timeMs: 60000,
+    timeoutMs: 30000,
+    permitWithoutCalls: false,
+  })
+  .withAuth({
+    clientId: process.env.KESSEL_CLIENT_ID,
+    clientSecret: process.env.KESSEL_CLIENT_SECRET,
+    issuerUrl: process.env.KESSEL_ISSUER_URL,
+  })
+  .withChannelOption("grpc.max_receive_message_length", 10 * 1024 * 1024)
+  .build();
+```
+
+## API Reference
+
+| Method                              | Parameters                               | Returns                | Description                        |
+| ----------------------------------- | ---------------------------------------- | ---------------------- | ---------------------------------- |
+| `withTarget(target)`                | `target: string`                         | `this`                 | Set the target server address      |
+| `withCredentials(creds)`            | `creds: ChannelCredentials`              | `this`                 | Set custom credentials             |
+| `withInsecureCredentials()`         | -                                        | `this`                 | Use insecure credentials           |
+| `withSecureCredentials(...)`        | Optional cert parameters                 | `this`                 | Use secure SSL credentials         |
+| `withSecureContextCredentials(...)` | `context: SecureContext`                 | `this`                 | Use credentials from SecureContext |
+| `withCredentialsConfig(config)`     | `config: ClientConfigCredentials`        | `this`                 | Configure credentials from object  |
+| `withAuth(auth)`                    | `auth: ClientConfigAuth`                 | `this`                 | Configure OAuth authentication     |
+| `withKeepAlive(config)`             | `config: Partial<ClientConfigKeepAlive>` | `this`                 | Configure keep-alive settings      |
+| `withChannelOption(option, value)`  | gRPC channel option                      | `this`                 | Set custom channel option          |
+| `withConfig(config)`                | `config: GRpcClientConfig`               | `this`                 | Configure from object              |
+| `build()`                           | -                                        | `PromisifiedClient<T>` | Build and return the client        |
+
+### Configuration Types
+
+#### ClientConfig
+
+```typescript
+interface ClientConfig {
+  target?: string;
+  credentials?: ClientConfigCredentials;
+  keepAlive?: Partial<ClientConfigKeepAlive>;
+  auth?: ClientConfigAuth;
+}
+```
+
+#### ClientConfigCredentials
+
+```typescript
+type ClientConfigCredentials =
+  | { type: "insecure" }
+  | {
+      type: "secure";
+      rootCerts?: string;
+      privateCerts?: string;
+      certChain?: string;
+      rejectUnauthorized?: boolean;
+    };
+```
+
+#### ClientConfigKeepAlive
+
+```typescript
+interface ClientConfigKeepAlive {
+  timeMs: number; // Ping interval in milliseconds
+  timeoutMs: number; // Ping timeout in milliseconds
+  permitWithoutCalls: boolean; // Allow pings when idle
+}
+```
+
+#### ClientConfigAuth
+
+```typescript
+interface ClientConfigAuth {
+  clientId: string; // OAuth client ID
+  clientSecret: string; // OAuth client secret
+  issuerUrl: string; // OAuth issuer URL
+}
+```
+
+## Error Handling
+
+### IncompleteKesselConfigurationError
+
+Thrown when required configuration is missing:
+
+```typescript
+try {
+  const client = ClientBuilder.builder().build(); // Missing target
+} catch (error) {
+  if (error instanceof IncompleteKesselConfigurationError) {
+    console.log("Missing configuration:", error.message);
   }
 }
-
-checkPermission();
 ```
 
-## Building the SDK
+### gRPC Status Codes
 
-If you are contributing to the SDK, you will need to build it from the source. The project uses `npm` to manage dependencies.
+The SDK uses standard gRPC status codes:
 
-1. **Install dependencies**
+```typescript
+import { status } from "@grpc/grpc-js";
 
-```bash
-  npm install
+try {
+  const response = await client.check(request);
+} catch (error) {
+  switch (error.code) {
+    case status.UNAUTHENTICATED:
+      // Handle authentication error
+      break;
+    case status.PERMISSION_DENIED:
+      // Handle authorization error
+      break;
+    case status.UNAVAILABLE:
+      // Handle service unavailable
+      break;
+    default:
+      // Handle other errors
+      break;
+  }
+}
 ```
 
-2. **Build the project**
+### Authentication Errors
+
+OAuth authentication errors are automatically handled and retried.
+If authentication fails permanently, the client will throw an `UNAUTHENTICATED` error.
+
+## Examples
+
+Check out the [examples directory](./examples) for working code samples:
+
+- **Builder examples**: Modern async/await patterns with client builder
+- **Vanilla examples**: Traditional callback patterns
+- **Authentication examples**: OAuth setup and usage
+- **Streaming examples**: Working with streaming APIs
+
+## Need Help?
+
+- Check the [GitHub Issues](https://github.com/project-kessel/kessel-sdk-node/issues)
+- Look at the [examples](./examples) directory
+
+## Development
+
+### Building
 
 ```bash
 npm run build
 ```
 
-Building the SDK will create three directories:
-
-- `dist/cjs` - for CommonJS style imports (`require`)
-- `dist/esm` - for ES6 style imports (`import`)
-- `dist/types` - for TypeScript type definitions
-
-## Running examples
-
-The [./examples](./examples) directory contains several code samples demonstrating how to use the SDK.
-
-To run the examples:
-
-1. **Build the SDK** by following the instructions in the [Building the SDK](#building-the-sdk) section.
-2. **Navigate to the examples directory**:
+### Testing
 
 ```bash
-  cd examples
+npm test
 ```
 
-3. **Install the example dependencies**:
+### Linting
 
 ```bash
-   npm install
+npm run lint
 ```
 
-4. **Run the desired example**:
-   - `npm run check`: Checks a permission.
-   - `npm run check_for_update`: Checks a permission for an update operation.
-   - `npm run report_resource`: Reports a resource to the inventory.
-   - `npm run delete_resource`: Deletes a resource from the inventory.
-   - `npm run streamed_list_objects`: List objects using a streaming API call
-   - `npm run promisify`: Demonstrates how to use promises with the SDK
+### Type Checking
+
+```bash
+npm run type-check
+```
+
+## License
+
+This project is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.

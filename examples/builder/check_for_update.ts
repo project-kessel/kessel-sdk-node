@@ -1,16 +1,15 @@
-import { KesselInventoryServiceClient } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/inventory_service";
 import { ResourceReference } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/resource_reference";
 import { SubjectReference } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/subject_reference";
 import { CheckForUpdateRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/check_for_update_request";
-import { ChannelCredentials } from "@grpc/grpc-js";
+import { ClientBuilder } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2";
+import "dotenv/config";
 
-const stub = new KesselInventoryServiceClient(
-  "localhost:9081",
-  ChannelCredentials.createInsecure(),
-  {
-    // Channel options
-  },
-);
+const client = ClientBuilder.builder()
+  .withTarget(process.env.KESSEL_ENDPOINT)
+  .withInsecureCredentials()
+  // .withKeepAlive(10000, 5000, true)
+  // .withCredentials(ChannelCredentials.createSsl())
+  .build();
 
 const subject: SubjectReference = {
   resource: {
@@ -36,12 +35,13 @@ const checkForUpdateRequest: CheckForUpdateRequest = {
   subject: subject,
 };
 
-stub.checkForUpdate(checkForUpdateRequest, (error, response) => {
-  if (!error) {
+(async () => {
+  try {
+    const response = await client.checkForUpdate(checkForUpdateRequest);
     console.log("CheckForUpdate response received successfully:");
     console.log(response);
-  } else {
+  } catch (error) {
     console.log("gRPC error occurred during CheckForUpdate:");
     console.log(`Exception:`, error);
   }
-});
+})();
