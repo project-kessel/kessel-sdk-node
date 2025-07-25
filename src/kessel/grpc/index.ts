@@ -567,7 +567,8 @@ export abstract class GRpcClientBuilder<T> {
   public withConfig(config: GRpcClientConfig): this {
     this.withTarget(config.target)
       .withKeepAlive(config.keepAlive)
-      .withCredentialsConfig(config.credentials ?? defaultCredentials());
+      .withCredentialsConfig(config.credentials ?? defaultCredentials())
+      .withAuth(config.auth);
 
     if (config.channelOptions) {
       (Object.keys(config.channelOptions) as ValidChannelOption[]).forEach(
