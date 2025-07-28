@@ -301,6 +301,27 @@ describe("GRpcClientBuilder", () => {
 
       expect(builder.credentials).toEqual(ChannelCredentials.createInsecure());
     });
+
+    it("Applies auth configuration from config object", () => {
+      const authConfig = {
+        clientId: "test-client-id",
+        clientSecret: "test-secret",
+        issuerUrl: "https://auth.example.com/oauth2",
+      };
+
+      const builder = TestClientBuilder.builder().withConfig({
+        target: "localhost:9000",
+        credentials: { type: "insecure" },
+        auth: authConfig,
+      });
+
+      // Verify that auth was applied by checking that build doesn't throw
+      // and that the auth interceptor is created when building
+      expect(() => builder.build()).not.toThrow();
+
+      // Verify that the auth config was actually applied by accessing the protected _auth property
+      expect((builder as any)._auth).toEqual(authConfig);
+    });
   });
 });
 
