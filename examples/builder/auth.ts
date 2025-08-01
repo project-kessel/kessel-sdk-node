@@ -2,17 +2,8 @@ import { ResourceReference } from "@project-kessel/kessel-sdk/kessel/inventory/v
 import { SubjectReference } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/subject_reference";
 import { CheckRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/check_request";
 import { ClientBuilder } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2";
+import { fetchOIDCDiscovery } from "@project-kessel/kessel-sdk/kessel/auth";
 import "dotenv/config";
-
-const client = ClientBuilder.builder()
-  .withTarget(process.env.KESSEL_ENDPOINT)
-  .withInsecureCredentials()
-  .withAuth({
-    clientId: process.env.AUTH_CLIENT_ID,
-    clientSecret: process.env.AUTH_CLIENT_SECRET,
-    issuerUrl: process.env.AUTH_DISCOVERY_ISSUER_URL,
-  })
-  .build();
 
 const subjectReference: SubjectReference = {
   resource: {
@@ -40,6 +31,20 @@ const check_request: CheckRequest = {
 
 (async () => {
   try {
+    const discovery = await fetchOIDCDiscovery(
+      process.env.AUTH_DISCOVERY_ISSUER_URL,
+    );
+
+    const client = ClientBuilder.builder()
+      .withTarget(process.env.KESSEL_ENDPOINT)
+      .withInsecureCredentials()
+      .withAuth({
+        clientId: process.env.AUTH_CLIENT_ID,
+        clientSecret: process.env.AUTH_CLIENT_SECRET,
+        tokenEndpoint: discovery.tokenEndpoint,
+      })
+      .build();
+
     const response = await client.check(check_request);
     console.log("Check response received successfully:");
     console.log(response);

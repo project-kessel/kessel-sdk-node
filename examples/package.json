@@ -8,6 +8,7 @@
     "vanilla:report_resource": "tsx vanilla/report_resource.ts",
     "vanilla:streamed_list_objects": "tsx vanilla/streamed_list_objects.ts",
     "vanilla:promisify": "tsx vanilla/promisify.ts",
+    "vanilla:auth": "tsx vanilla/auth.ts",
     "builder:check": "tsx builder/check.ts",
     "builder:check_for_update": "tsx builder/check_for_update.ts",
     "builder:delete_resource": "tsx builder/delete_resource.ts",

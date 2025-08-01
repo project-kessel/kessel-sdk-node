@@ -8,6 +8,39 @@ interface TokenData {
   expiresAt: number;
 }
 
+export interface RefreshTokenResponse {
+  accessToken: string;
+  expiresIn: number;
+}
+
+export interface OIDCDiscoveryMetadata {
+  tokenEndpoint: string;
+}
+
+const importOAuth4WebApi = async (): Promise<typeof oauth> => {
+  return await import("oauth4webapi");
+};
+
+export const fetchOIDCDiscovery = async (
+  issueUrl: string,
+): Promise<OIDCDiscoveryMetadata> => {
+  const oauth = await importOAuth4WebApi();
+  const issuerUrlObject = new URL(issueUrl);
+  const response = await oauth.discoveryRequest(issuerUrlObject);
+  const authServer = await oauth.processDiscoveryResponse(
+    issuerUrlObject,
+    response,
+  );
+
+  if (!authServer.token_endpoint) {
+    throw new Error("Token endpoint could not be discovered from issuer URL.");
+  }
+
+  return {
+    tokenEndpoint: authServer.token_endpoint,
+  };
+};
+
 /**
  * Handles OAuth 2.0 Client Credentials flow for authentication.
  *
@@ -25,7 +58,7 @@ interface TokenData {
  * const token = await tokenRetriever.getNextToken();
  * ```
  */
-export class OAuthTokenRetriever {
+export class OAuth2ClientCredentials {
   private tokenCache?: TokenData;
   private authServer: oauth.AuthorizationServer;
   private initialized: boolean = false;
@@ -38,7 +71,12 @@ export class OAuthTokenRetriever {
    *
    * @param auth - The OAuth configuration object
    */
-  constructor(readonly auth: ClientConfigAuth) {}
+  constructor(readonly auth: ClientConfigAuth) {
+    this.authServer = {
+      issuer: auth.tokenEndpoint,
+      token_endpoint: auth.tokenEndpoint,
+    };
+  }
 
   /**
    * Ensures the OAuth client is initialized by performing discovery.
@@ -48,19 +86,7 @@ export class OAuthTokenRetriever {
    */
   public async ensureIsInitialized() {
     if (!this.initialized) {
-      const oauth = await import("oauth4webapi");
-      const issueUrl = new URL(this.auth.issuerUrl);
-
-      const response = await oauth.discoveryRequest(issueUrl);
-      this.authServer = await oauth.processDiscoveryResponse(
-        issueUrl,
-        response,
-      );
-      if (!this.authServer.token_endpoint) {
-        throw new Error(
-          "Token endpoint could not be discovered from issuer URL.",
-        );
-      }
+      const oauth = await importOAuth4WebApi();
 
       this.ClientSecretPost = oauth.ClientSecretPost;
       this.clientCredentialsGrantRequest = oauth.clientCredentialsGrantRequest;
@@ -97,13 +123,24 @@ export class OAuthTokenRetriever {
    * @returns A promise that resolves to a valid access token
    * @throws {Error} If token retrieval fails
    */
-  async getNextToken(): Promise<string> {
+  async getToken(): Promise<string> {
     await this.ensureIsInitialized();
 
     if (this.isCacheValid()) {
       return this.tokenCache.accessToken;
     }
 
+    const refreshResponse = await this.refresh();
+
+    this.tokenCache = {
+      accessToken: refreshResponse.accessToken,
+      expiresAt: Date.now() + refreshResponse.expiresIn * 1000,
+    };
+
+    return this.tokenCache.accessToken;
+  }
+
+  async refresh(): Promise<RefreshTokenResponse> {
     const client: oauth.Client = { client_id: this.auth.clientId };
     const clientAuth = this.ClientSecretPost(this.auth.clientSecret);
     const parameters = new URLSearchParams();
@@ -120,11 +157,9 @@ export class OAuthTokenRetriever {
       response,
     );
 
-    this.tokenCache = {
+    return {
+      expiresIn: result.expires_in,
       accessToken: result.access_token,
-      expiresAt: Date.now() + result.expires_in * 1000,
     };
-
-    return this.tokenCache.accessToken;
   }
 }

@@ -55,7 +55,7 @@ describe("v1beta2 ClientBuilder", () => {
     const authConfig = {
       clientId: "test-client",
       clientSecret: "test-secret",
-      issuerUrl: "https://example.com/auth",
+      tokenEndpoint: "https://example.com/auth",
     };
 
     const builder = ClientBuilder.builder()
@@ -79,7 +79,7 @@ describe("v1beta2 ClientBuilder", () => {
       auth: {
         clientId: "test-client",
         clientSecret: "test-secret",
-        issuerUrl: "https://example.com/auth",
+        tokenEndpoint: "https://example.com/auth",
       },
     };
 
@@ -154,7 +154,7 @@ describe("v1beta2 ClientBuilder", () => {
         auth: {
           clientId: "inventory-client",
           clientSecret: "prod-secret",
-          issuerUrl: "https://sso.prod.example.com/auth",
+          tokenEndpoint: "https://sso.prod.example.com/auth",
         },
         channelOptions: {
           "grpc.max_receive_message_length": 10 * 1024 * 1024,
@@ -257,7 +257,7 @@ describe("v1beta2 ClientBuilder", () => {
         .withAuth({
           clientId: "test",
           clientSecret: "secret",
-          issuerUrl: "https://auth.example.com",
+          tokenEndpoint: "https://auth.example.com",
         });
 
       expect(() => builder.build()).not.toThrow();

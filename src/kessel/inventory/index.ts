@@ -104,7 +104,7 @@ export type ClientConfigAuth = {
    * @example "https://auth.example.com"
    * @example "https://sso.server/auth/realms/my-realm"
    */
-  issuerUrl: string;
+  tokenEndpoint: string;
 };
 
 /**
