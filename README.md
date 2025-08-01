@@ -232,7 +232,9 @@ const discovery = await fetchOIDCDiscovery("https://auth.example.com");
 import { fetchOIDCDiscovery } from "@project-kessel/kessel-sdk/kessel/auth";
 
 // Discover the token endpoint
-const discovery = await fetchOIDCDiscovery("https://sso.server/auth/realms/my-realm");
+const discovery = await fetchOIDCDiscovery(
+  "https://sso.server/auth/realms/my-realm",
+);
 
 const client = ClientBuilder.builder()
   .withTarget("kessel-api.example.com:443")

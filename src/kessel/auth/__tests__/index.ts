@@ -46,7 +46,9 @@ describe("fetchOIDCDiscovery", () => {
     mockOAuth.discoveryRequest.mockResolvedValue(mockResponse);
     mockOAuth.processDiscoveryResponse.mockResolvedValue(mockAuthServer);
 
-    await expect(fetchOIDCDiscovery("https://example.com/auth")).rejects.toThrow(
+    await expect(
+      fetchOIDCDiscovery("https://example.com/auth"),
+    ).rejects.toThrow(
       "Token endpoint could not be discovered from issuer URL.",
     );
   });
@@ -55,9 +57,9 @@ describe("fetchOIDCDiscovery", () => {
     const networkError = new Error("Network error");
     mockOAuth.discoveryRequest.mockRejectedValue(networkError);
 
-    await expect(fetchOIDCDiscovery("https://example.com/auth")).rejects.toThrow(
-      "Network error",
-    );
+    await expect(
+      fetchOIDCDiscovery("https://example.com/auth"),
+    ).rejects.toThrow("Network error");
   });
 
   it("handles malformed discovery response", async () => {
@@ -67,9 +69,9 @@ describe("fetchOIDCDiscovery", () => {
       new Error("Malformed response"),
     );
 
-    await expect(fetchOIDCDiscovery("https://example.com/auth")).rejects.toThrow(
-      "Malformed response",
-    );
+    await expect(
+      fetchOIDCDiscovery("https://example.com/auth"),
+    ).rejects.toThrow("Malformed response");
   });
 
   it("handles invalid issuer URL", async () => {
