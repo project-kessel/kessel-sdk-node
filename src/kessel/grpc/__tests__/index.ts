@@ -306,7 +306,7 @@ describe("GRpcClientBuilder", () => {
       const authConfig = {
         clientId: "test-client-id",
         clientSecret: "test-secret",
-        issuerUrl: "https://auth.example.com/oauth2",
+        tokenEndpoint: "https://auth.example.com/oauth2",
       };
 
       const builder = TestClientBuilder.builder().withConfig({
@@ -411,7 +411,7 @@ describe("Auth Interceptor", () => {
     const authConfig = {
       clientId: "test-client",
       clientSecret: "test-secret",
-      issuerUrl: "https://example.com/auth",
+      tokenEndpoint: "https://example.com/auth",
     };
 
     const builder = TestClientBuilder.builder()
@@ -434,7 +434,7 @@ describe("Auth Interceptor", () => {
     const authConfig = {
       clientId: "test-client",
       clientSecret: "test-secret",
-      issuerUrl: "https://example.com/auth",
+      tokenEndpoint: "https://example.com/auth",
     };
 
     const builder = TestClientBuilder.builder()
@@ -450,7 +450,7 @@ describe("Auth Interceptor", () => {
     const authConfig = {
       clientId: "test-client",
       clientSecret: "test-secret",
-      issuerUrl: "https://invalid-url",
+      tokenEndpoint: "https://invalid-url",
     };
 
     const builder = TestClientBuilder.builder()
@@ -518,7 +518,7 @@ describe("Complex Configuration Scenarios", () => {
       auth: {
         clientId: "production-client",
         clientSecret: "production-secret",
-        issuerUrl: "https://auth.example.com",
+        tokenEndpoint: "https://auth.example.com",
       },
       channelOptions: {
         "grpc.max_receive_message_length": 4 * 1024 * 1024,

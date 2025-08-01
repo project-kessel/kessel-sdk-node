@@ -23,7 +23,7 @@ import {
 } from "../inventory";
 import { SecureContext } from "node:tls";
 import { Status } from "@grpc/grpc-js/build/src/constants";
-import { OAuthTokenRetriever } from "../auth";
+import { OAuth2ClientCredentials } from "../auth";
 
 interface CallbackClientMethod<
   TRequest = unknown,
@@ -283,13 +283,13 @@ export abstract class GRpcClientBuilder<T> {
     }
 
     const auth = { ...this._auth };
-    const tokenRetriever = new OAuthTokenRetriever(auth);
+    const tokenRetriever = new OAuth2ClientCredentials(auth);
 
     return (options, nextCall): InterceptingCall => {
       return new InterceptingCall(nextCall(options), {
         start: async (metadata, listener, next) => {
           try {
-            const token = await tokenRetriever.getNextToken();
+            const token = await tokenRetriever.getToken();
 
             metadata.set("Authorization", `Bearer ${token}`);
 
