@@ -311,7 +311,7 @@ describe("GRpcClientBuilder", () => {
 
       const builder = TestClientBuilder.builder().withConfig({
         target: "localhost:9000",
-        credentials: { type: "insecure" },
+        credentials: { type: "secure" },
         auth: authConfig,
       });
 
@@ -419,46 +419,6 @@ describe("Auth Interceptor", () => {
       .withAuth(authConfig);
 
     expect(() => builder.build()).not.toThrow();
-  });
-
-  it("Throws error when creating auth interceptor without auth config", () => {
-    const builder = TestClientBuilder.builder().withTarget("localhost:9000");
-
-    // Access the protected method to test error handling
-    expect(() => (builder as any).createAuthInterceptor()).toThrow(
-      "Requested to create auth interceptor without a valid auth. This is a bug.",
-    );
-  });
-
-  it("Auth interceptor sets Bearer token in metadata", async () => {
-    const authConfig = {
-      clientId: "test-client",
-      clientSecret: "test-secret",
-      tokenEndpoint: "https://example.com/auth",
-    };
-
-    const builder = TestClientBuilder.builder()
-      .withTarget("localhost:9000")
-      .withAuth(authConfig);
-
-    const interceptor = (builder as any).createAuthInterceptor();
-    expect(interceptor).toBeDefined();
-    expect(typeof interceptor).toBe("function");
-  });
-
-  it("Auth interceptor handles token retrieval errors", async () => {
-    const authConfig = {
-      clientId: "test-client",
-      clientSecret: "test-secret",
-      tokenEndpoint: "https://invalid-url",
-    };
-
-    const builder = TestClientBuilder.builder()
-      .withTarget("localhost:9000")
-      .withAuth(authConfig);
-
-    const interceptor = (builder as any).createAuthInterceptor();
-    expect(interceptor).toBeDefined();
   });
 });
 

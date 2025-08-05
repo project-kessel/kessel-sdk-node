@@ -251,7 +251,7 @@ describe("v1beta2 ClientBuilder", () => {
     it("supports fluent interface", () => {
       const builder = ClientBuilder.builder()
         .withTarget("localhost:9000")
-        .withInsecureCredentials()
+        .withSecureCredentials()
         .withKeepAlive({ timeMs: 1000 })
         .withChannelOption("grpc.max_receive_message_length", 1024)
         .withAuth({
