@@ -157,7 +157,7 @@ describe("OAuth2ClientCredentials", () => {
         expiresAt: futureTime,
       };
 
-      const token = await tokenRetriever.getToken();
+      const [token, ..._rest] = await tokenRetriever.getToken();
       expect(token).toBe("cached-token");
 
       // Should not call OAuth methods
@@ -181,7 +181,7 @@ describe("OAuth2ClientCredentials", () => {
 
       const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
-      const token = await tokenRetriever.getToken();
+      const [token, ..._rest] = await tokenRetriever.getToken();
       expect(token).toBe("new-token");
 
       // Should have called OAuth methods
@@ -348,7 +348,7 @@ describe("OAuth2ClientCredentials", () => {
       const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Don't call ensureIsInitialized manually
-      const token = await tokenRetriever.getToken();
+      const [token, ..._rest] = await tokenRetriever.getToken();
       expect(token).toBe("fresh-token");
     });
 
@@ -369,7 +369,7 @@ describe("OAuth2ClientCredentials", () => {
 
       const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
-      const token = await tokenRetriever.getToken();
+      const [token, ..._rest] = await tokenRetriever.getToken();
       expect(token).toBe("zero-expiry-token");
 
       // Token should be cached but immediately invalid
@@ -393,7 +393,7 @@ describe("OAuth2ClientCredentials", () => {
 
       const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
-      const token = await tokenRetriever.getToken();
+      const [token, ..._rest] = await tokenRetriever.getToken();
       expect(token).toBe("long-lived-token");
 
       // Token should be cached and valid
@@ -425,7 +425,7 @@ describe("OAuth2ClientCredentials", () => {
 
       // All should return the same token
       expect(tokens).toHaveLength(5);
-      tokens.forEach((token) => expect(token).toBe("concurrent-token"));
+      tokens.forEach((token) => expect(token[0]).toBe("concurrent-token"));
     });
   });
 

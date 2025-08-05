@@ -1,14 +1,15 @@
 import type * as oauth from "oauth4webapi";
 import { ClientConfigAuth } from "../inventory";
 
-const EXPIRATION_WINDOW = 20000; // 20 seconds in milliseconds
+const EXPIRATION_WINDOW = 300000; // 300 seconds in milliseconds  / 5 minutes
 
 interface TokenData {
   accessToken: string;
   expiresAt: number;
+  expiresIn: number;
 }
 
-export interface RefreshTokenResponse {
+interface RefreshTokenResponse {
   accessToken: string;
   expiresIn: number;
 }
@@ -84,7 +85,7 @@ export class OAuth2ClientCredentials {
    *
    * @throws {Error} If the token endpoint cannot be discovered from the issuer URL
    */
-  public async ensureIsInitialized() {
+  async ensureIsInitialized() {
     if (!this.initialized) {
       const oauth = await importOAuth4WebApi();
 
@@ -123,24 +124,25 @@ export class OAuth2ClientCredentials {
    * @returns A promise that resolves to a valid access token
    * @throws {Error} If token retrieval fails
    */
-  async getToken(): Promise<string> {
+  async getToken(forceRefresh: boolean = false): Promise<[string, number]> {
     await this.ensureIsInitialized();
 
-    if (this.isCacheValid()) {
-      return this.tokenCache.accessToken;
+    if (!forceRefresh && this.isCacheValid()) {
+      return [this.tokenCache.accessToken, this.tokenCache.expiresIn];
     }
 
     const refreshResponse = await this.refresh();
 
     this.tokenCache = {
       accessToken: refreshResponse.accessToken,
+      expiresIn: refreshResponse.expiresIn,
       expiresAt: Date.now() + refreshResponse.expiresIn * 1000,
     };
 
-    return this.tokenCache.accessToken;
+    return [this.tokenCache.accessToken, this.tokenCache.expiresIn];
   }
 
-  async refresh(): Promise<RefreshTokenResponse> {
+  private async refresh(): Promise<RefreshTokenResponse> {
     const client: oauth.Client = { client_id: this.auth.clientId };
     const clientAuth = this.ClientSecretPost(this.auth.clientSecret);
     const parameters = new URLSearchParams();

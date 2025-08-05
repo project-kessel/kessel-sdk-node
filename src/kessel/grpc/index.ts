@@ -3,6 +3,7 @@ import {
   ChannelOptions,
   Client,
   ClientUnaryCall,
+  credentials,
   InterceptingCall,
   Interceptor,
   Metadata,
@@ -175,6 +176,15 @@ export interface GRpcClientConfig extends ClientConfig {
     [Key in ValidChannelOption]: ValidChannelOptionValue<Key>;
   }>;
 }
+
+export const oauth2CallCredentials = (auth: OAuth2ClientCredentials) => {
+  return credentials.createFromMetadataGenerator(async (options, callback) => {
+    const token = await auth.getToken();
+    const metadata = new Metadata();
+    metadata.add("Authorization", `Bearer ${token}`);
+    callback(null, metadata);
+  });
+};
 
 /**
  * Builder class for creating configured Kessel Inventory Service clients.

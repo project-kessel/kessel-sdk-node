@@ -2,18 +2,14 @@ import { KesselInventoryServiceClient } from "@project-kessel/kessel-sdk/kessel/
 import { ResourceReference } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/resource_reference";
 import { SubjectReference } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/subject_reference";
 import { CheckRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/check_request";
-import { fetchOIDCDiscovery } from "@project-kessel/kessel-sdk/kessel/auth";
+import {
+  fetchOIDCDiscovery,
+  OIDCDiscoveryMetadata,
+  OAuth2ClientCredentials,
+} from "@project-kessel/kessel-sdk/kessel/auth";
+import { oauth2CallCredentials } from "@project-kessel/kessel-sdk/kessel/grpc";
 import "dotenv/config";
-import { ChannelCredentials, Metadata } from "@grpc/grpc-js";
-import { OAuth2ClientCredentials } from "../../src/kessel/auth";
-
-const stub = new KesselInventoryServiceClient(
-  process.env.KESSEL_ENDPOINT,
-  ChannelCredentials.createInsecure(),
-  {
-    // Channel options
-  },
-);
+import { ChannelCredentials, credentials } from "@grpc/grpc-js";
 
 const subjectReference: SubjectReference = {
   resource: {
@@ -40,26 +36,29 @@ const check_request: CheckRequest = {
 };
 
 fetchOIDCDiscovery(process.env.AUTH_DISCOVERY_ISSUER_URL)
-  .then((discovery) => {
+  .then((discovery: OIDCDiscoveryMetadata) => {
     return new OAuth2ClientCredentials({
-      clientId: process.env.AUTH_CLIENT_ID,
-      clientSecret: process.env.AUTH_CLIENT_SECRET,
+      clientId: process.env.AUTH_CLIENT_ID!,
+      clientSecret: process.env.AUTH_CLIENT_SECRET!,
       tokenEndpoint: discovery.tokenEndpoint,
     });
   })
-  .then((auth) => {
-    auth.getToken().then((token) => {
-      const metadata = new Metadata();
-      metadata.add("authorization", `Bearer ${token}`);
+  .then((auth: OAuth2ClientCredentials) => {
+    const stub = new KesselInventoryServiceClient(
+      process.env.KESSEL_ENDPOINT,
+      credentials.combineChannelCredentials(
+        ChannelCredentials.createSsl(), // Auth only works with secure credentials
+        oauth2CallCredentials(auth),
+      ),
+    );
 
-      stub.check(check_request, metadata, (error, response) => {
-        if (!error) {
-          console.log("Check response received successfully:");
-          console.log(response);
-        } else {
-          console.log("gRPC error occurred during Check:");
-          console.log(`Exception:`, error);
-        }
-      });
+    stub.check(check_request, (error, response) => {
+      if (!error) {
+        console.log("Check response received successfully:");
+        console.log(response);
+      } else {
+        console.log("gRPC error occurred during Check:");
+        console.log(`Exception:`, error);
+      }
     });
   });
