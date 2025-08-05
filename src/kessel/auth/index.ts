@@ -46,17 +46,24 @@ export const fetchOIDCDiscovery = async (
  * Handles OAuth 2.0 Client Credentials flow for authentication.
  *
  * This class manages token retrieval, caching, and automatic refresh for OAuth authentication.
- * It performs OAuth discovery to find the token endpoint and caches tokens until near expiration.
+ * It requires a token endpoint URL (which can be discovered using fetchOIDCDiscovery) and caches tokens until near expiration.
  *
  * @example
  * ```typescript
- * const tokenRetriever = new OAuthTokenRetriever({
+ * import { fetchOIDCDiscovery, OAuth2ClientCredentials } from "@project-kessel/kessel-sdk/kessel/auth";
+ * 
+ * // First, discover the token endpoint
+ * const discovery = await fetchOIDCDiscovery("https://auth.example.com");
+ * 
+ * // Create the OAuth client with the discovered endpoint
+ * const authClient = new OAuth2ClientCredentials({
  *   clientId: "my-client-id",
  *   clientSecret: "my-client-secret",
- *   issuerUrl: "https://auth.example.com"
+ *   tokenEndpoint: discovery.tokenEndpoint
  * });
  *
- * const token = await tokenRetriever.getNextToken();
+ * // Get a token (returns [token, expiresInSeconds])
+ * const [token, expiresIn] = await authClient.getToken();
  * ```
  */
 export class OAuth2ClientCredentials {
@@ -68,9 +75,9 @@ export class OAuth2ClientCredentials {
   private processClientCredentialsResponse: typeof oauth.processClientCredentialsResponse;
 
   /**
-   * Creates a new OAuthTokenRetriever instance.
+   * Creates a new OAuth2ClientCredentials instance.
    *
-   * @param auth - The OAuth configuration object
+   * @param auth - The OAuth configuration object containing clientId, clientSecret, and tokenEndpoint
    */
   constructor(readonly auth: ClientConfigAuth) {
     this.authServer = {
@@ -117,11 +124,12 @@ export class OAuth2ClientCredentials {
    *
    * This method will:
    * 1. Initialize the OAuth client if not already done
-   * 2. Return the cached token if it's still valid
+   * 2. Return the cached token if it's still valid (unless forceRefresh is true)
    * 3. Fetch a new token from the OAuth server if needed
    * 4. Cache the new token for future use
    *
-   * @returns A promise that resolves to a valid access token
+   * @param forceRefresh - If true, bypasses cache and forces a new token request
+   * @returns A promise that resolves to a tuple containing [accessToken, expiresInSeconds]
    * @throws {Error} If token retrieval fails
    */
   async getToken(forceRefresh: boolean = false): Promise<[string, number]> {

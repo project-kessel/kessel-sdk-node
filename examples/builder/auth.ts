@@ -37,7 +37,7 @@ const check_request: CheckRequest = {
 
     const client = ClientBuilder.builder()
       .withTarget(process.env.KESSEL_ENDPOINT)
-      .withSecureCredentials()
+      .withSecureCredentials() // Auth only works with secure credentials
       .withAuth({
         clientId: process.env.AUTH_CLIENT_ID,
         clientSecret: process.env.AUTH_CLIENT_SECRET,

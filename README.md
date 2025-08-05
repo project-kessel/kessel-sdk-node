@@ -250,6 +250,31 @@ const client = ClientBuilder.builder()
 const response = await client.check(request);
 ```
 
+### Manual Token Management
+
+If you need direct access to tokens:
+
+```typescript
+import { OAuth2ClientCredentials, fetchOIDCDiscovery } from "@project-kessel/kessel-sdk/kessel/auth";
+
+// Discover the token endpoint
+const discovery = await fetchOIDCDiscovery("https://auth.example.com");
+
+// Create an OAuth client
+const authClient = new OAuth2ClientCredentials({
+  clientId: "your-client-id",
+  clientSecret: "your-client-secret",
+  tokenEndpoint: discovery.tokenEndpoint,
+});
+
+// Get a token (returns [token, expiresInSeconds])
+const [accessToken, expiresIn] = await authClient.getToken();
+console.log(`Token: ${accessToken}, expires in ${expiresIn} seconds`);
+
+// Force refresh a token
+const [newToken, newExpiresIn] = await authClient.getToken(true);
+```
+
 ## Examples
 
 ### Development Setup
