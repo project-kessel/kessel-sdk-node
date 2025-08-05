@@ -1,7 +1,7 @@
 import type * as oauth from "oauth4webapi";
 import { ClientConfigAuth } from "../inventory";
 
-const EXPIRATION_WINDOW = 300000; // 300 seconds in milliseconds  / 5 minutes
+const EXPIRATION_WINDOW = 300000; // 5 minutes in milliseconds
 
 interface TokenData {
   accessToken: string;
@@ -87,10 +87,10 @@ export class OAuth2ClientCredentials {
   }
 
   /**
-   * Ensures the OAuth client is initialized by performing discovery.
-   * This method is called automatically by getNextToken() and is idempotent.
+   * Ensures the OAuth client is initialized.
+   * This method is called automatically by getToken() and is idempotent.
    *
-   * @throws {Error} If the token endpoint cannot be discovered from the issuer URL
+   * @throws {Error} If initialization fails
    */
   async ensureIsInitialized() {
     if (!this.initialized) {
@@ -117,6 +117,7 @@ export class OAuth2ClientCredentials {
     ) {
       return true;
     }
+    return false;
   }
 
   /**
@@ -136,7 +137,9 @@ export class OAuth2ClientCredentials {
     await this.ensureIsInitialized();
 
     if (!forceRefresh && this.isCacheValid()) {
-      return [this.tokenCache.accessToken, this.tokenCache.expiresIn];
+      // Calculate accurate remaining time
+      const remainingTime = Math.max(0, Math.floor((this.tokenCache.expiresAt - Date.now()) / 1000));
+      return [this.tokenCache.accessToken, remainingTime];
     }
 
     const refreshResponse = await this.refresh();
@@ -167,8 +170,18 @@ export class OAuth2ClientCredentials {
       response,
     );
 
+    if (!result.access_token) {
+      throw new Error("No access token received from OAuth server");
+    }
+
+    // Handle missing or invalid expires_in - default to 1 hour if not provided
+    // Note: expires_in of 0 is valid and means "immediately expired"
+    const expiresIn = typeof result.expires_in === 'number' && result.expires_in >= 0 
+      ? result.expires_in 
+      : 3600; // Default to 1 hour
+
     return {
-      expiresIn: result.expires_in,
+      expiresIn,
       accessToken: result.access_token,
     };
   }

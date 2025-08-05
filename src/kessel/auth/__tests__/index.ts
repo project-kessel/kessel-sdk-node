@@ -278,7 +278,7 @@ describe("OAuth2ClientCredentials", () => {
       const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Set up a cache that expires just within the expiration window
-      const almostExpiredTime = Date.now() + 10000; // 10 seconds (less than 20 second window)
+      const almostExpiredTime = Date.now() + 200000; // 200 seconds (less than 300 second window)
       (tokenRetriever as any).tokenCache = {
         accessToken: "almost-expired-token",
         expiresAt: almostExpiredTime,
@@ -291,7 +291,7 @@ describe("OAuth2ClientCredentials", () => {
       const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Set up a cache that expires at exactly the expiration window
-      const exactExpirationTime = Date.now() + 20000; // Exactly 20 seconds (the window)
+      const exactExpirationTime = Date.now() + 300000; // Exactly 300 seconds (5 minutes)
       (tokenRetriever as any).tokenCache = {
         accessToken: "exact-expiration-token",
         expiresAt: exactExpirationTime,
