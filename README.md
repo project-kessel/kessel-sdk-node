@@ -255,7 +255,10 @@ const response = await client.check(request);
 If you need direct access to tokens:
 
 ```typescript
-import { OAuth2ClientCredentials, fetchOIDCDiscovery } from "@project-kessel/kessel-sdk/kessel/auth";
+import {
+  OAuth2ClientCredentials,
+  fetchOIDCDiscovery,
+} from "@project-kessel/kessel-sdk/kessel/auth";
 
 // Discover the token endpoint
 const discovery = await fetchOIDCDiscovery("https://auth.example.com");

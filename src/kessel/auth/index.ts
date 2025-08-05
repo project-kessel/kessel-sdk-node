@@ -51,10 +51,10 @@ export const fetchOIDCDiscovery = async (
  * @example
  * ```typescript
  * import { fetchOIDCDiscovery, OAuth2ClientCredentials } from "@project-kessel/kessel-sdk/kessel/auth";
- * 
+ *
  * // First, discover the token endpoint
  * const discovery = await fetchOIDCDiscovery("https://auth.example.com");
- * 
+ *
  * // Create the OAuth client with the discovered endpoint
  * const authClient = new OAuth2ClientCredentials({
  *   clientId: "my-client-id",
@@ -138,7 +138,10 @@ export class OAuth2ClientCredentials {
 
     if (!forceRefresh && this.isCacheValid()) {
       // Calculate accurate remaining time
-      const remainingTime = Math.max(0, Math.floor((this.tokenCache.expiresAt - Date.now()) / 1000));
+      const remainingTime = Math.max(
+        0,
+        Math.floor((this.tokenCache.expiresAt - Date.now()) / 1000),
+      );
       return [this.tokenCache.accessToken, remainingTime];
     }
 
@@ -176,9 +179,10 @@ export class OAuth2ClientCredentials {
 
     // Handle missing or invalid expires_in - default to 1 hour if not provided
     // Note: expires_in of 0 is valid and means "immediately expired"
-    const expiresIn = typeof result.expires_in === 'number' && result.expires_in >= 0 
-      ? result.expires_in 
-      : 3600; // Default to 1 hour
+    const expiresIn =
+      typeof result.expires_in === "number" && result.expires_in >= 0
+        ? result.expires_in
+        : 3600; // Default to 1 hour
 
     return {
       expiresIn,
