@@ -176,7 +176,7 @@ export interface GRpcClientConfig extends ClientConfig {
 
 export const oauth2CallCredentials = (auth: OAuth2ClientCredentials) => {
   return credentials.createFromMetadataGenerator(async (options, callback) => {
-    const [token, ..._rest] = await auth.getToken();
+    const token = (await auth.getToken()).accessToken;
     const metadata = new Metadata();
     metadata.add("Authorization", `Bearer ${token}`);
     callback(null, metadata);

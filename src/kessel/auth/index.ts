@@ -1,17 +1,17 @@
 import type * as oauth from "oauth4webapi";
 import { ClientConfigAuth } from "../inventory";
 
-const EXPIRATION_WINDOW = 300000; // 5 minutes in milliseconds
+const EXPIRATION_WINDOW_MILLI = 300000; // 5 minutes in milliseconds
+const DEFAULT_EXPIRE_IN_SECONDS = 3600; // 1 hour in seconds
 
 interface TokenData {
   accessToken: string;
   expiresAt: number;
-  expiresIn: number;
 }
 
 interface RefreshTokenResponse {
   accessToken: string;
-  expiresIn: number;
+  expiresAt: number;
 }
 
 export interface OIDCDiscoveryMetadata {
@@ -113,7 +113,7 @@ export class OAuth2ClientCredentials {
   isCacheValid(): boolean {
     if (
       this.tokenCache &&
-      this.tokenCache.expiresAt > Date.now() + EXPIRATION_WINDOW
+      this.tokenCache.expiresAt > Date.now() + EXPIRATION_WINDOW_MILLI
     ) {
       return true;
     }
@@ -133,30 +133,18 @@ export class OAuth2ClientCredentials {
    * @returns A promise that resolves to a tuple containing [accessToken, expiresInSeconds]
    * @throws {Error} If token retrieval fails
    */
-  async getToken(forceRefresh: boolean = false): Promise<[string, number]> {
+  async getToken(forceRefresh: boolean = false): Promise<RefreshTokenResponse> {
     await this.ensureIsInitialized();
 
     if (!forceRefresh && this.isCacheValid()) {
-      // Calculate accurate remaining time
-      const remainingTime = Math.max(
-        0,
-        Math.floor((this.tokenCache.expiresAt - Date.now()) / 1000),
-      );
-      return [this.tokenCache.accessToken, remainingTime];
+      return this.tokenCache;
     }
 
-    const refreshResponse = await this.refresh();
-
-    this.tokenCache = {
-      accessToken: refreshResponse.accessToken,
-      expiresIn: refreshResponse.expiresIn,
-      expiresAt: Date.now() + refreshResponse.expiresIn * 1000,
-    };
-
-    return [this.tokenCache.accessToken, this.tokenCache.expiresIn];
+    this.tokenCache = await this.refresh();
+    return this.tokenCache;
   }
 
-  private async refresh(): Promise<RefreshTokenResponse> {
+  private async refresh(): Promise<Readonly<RefreshTokenResponse>> {
     const client: oauth.Client = { client_id: this.auth.clientId };
     const clientAuth = this.ClientSecretPost(this.auth.clientSecret);
     const parameters = new URLSearchParams();
@@ -182,11 +170,11 @@ export class OAuth2ClientCredentials {
     const expiresIn =
       typeof result.expires_in === "number" && result.expires_in >= 0
         ? result.expires_in
-        : 3600; // Default to 1 hour
+        : DEFAULT_EXPIRE_IN_SECONDS;
 
-    return {
-      expiresIn,
+    return Object.freeze({
+      expiresAt: Date.now() + expiresIn * 1000,
       accessToken: result.access_token,
-    };
+    });
   }
 }
