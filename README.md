@@ -271,11 +271,11 @@ const authClient = new OAuth2ClientCredentials({
 });
 
 // Get a token (returns [token, expiresInSeconds])
-const [accessToken, expiresIn] = await authClient.getToken();
+const [accessToken, expiresAt] = await authClient.getToken();
 console.log(`Token: ${accessToken}, expires in ${expiresIn} seconds`);
 
 // Force refresh a token
-const [newToken, newExpiresIn] = await authClient.getToken(true);
+const [newToken, newExpiresAt] = await authClient.getToken(true);
 ```
 
 ## Examples

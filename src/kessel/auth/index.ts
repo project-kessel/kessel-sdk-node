@@ -63,7 +63,7 @@ export const fetchOIDCDiscovery = async (
  * });
  *
  * // Get a token (returns [token, expiresInSeconds])
- * const [token, expiresIn] = await authClient.getToken();
+ * const [token, expiresAt] = await authClient.getToken();
  * ```
  */
 export class OAuth2ClientCredentials {
