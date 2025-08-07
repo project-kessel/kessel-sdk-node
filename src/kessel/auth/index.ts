@@ -4,14 +4,9 @@ import { ClientConfigAuth } from "../inventory";
 const EXPIRATION_WINDOW_MILLI = 300000; // 5 minutes in milliseconds
 const DEFAULT_EXPIRE_IN_SECONDS = 3600; // 1 hour in seconds
 
-interface TokenData {
-  accessToken: string;
-  expiresAt: number;
-}
-
 interface RefreshTokenResponse {
   accessToken: string;
-  expiresAt: number;
+  expiresAt: Date;
 }
 
 export interface OIDCDiscoveryMetadata {
@@ -62,12 +57,13 @@ export const fetchOIDCDiscovery = async (
  *   tokenEndpoint: discovery.tokenEndpoint
  * });
  *
- * // Get a token (returns [token, expiresInSeconds])
- * const [token, expiresAt] = await authClient.getToken();
+ * // Get a token (returns RefreshTokenResponse object)
+ * const tokenResponse = await authClient.getToken();
+ * console.log(`Token: ${tokenResponse.accessToken}, expires at: ${tokenResponse.expiresAt}`);
  * ```
  */
 export class OAuth2ClientCredentials {
-  private tokenCache?: TokenData;
+  private tokenCache?: RefreshTokenResponse;
   private authServer: oauth.AuthorizationServer;
   private initialized: boolean = false;
   private ClientSecretPost: typeof oauth.ClientSecretPost;
@@ -113,7 +109,7 @@ export class OAuth2ClientCredentials {
   isCacheValid(): boolean {
     if (
       this.tokenCache &&
-      this.tokenCache.expiresAt > Date.now() + EXPIRATION_WINDOW_MILLI
+      this.tokenCache.expiresAt.getTime() > Date.now() + EXPIRATION_WINDOW_MILLI
     ) {
       return true;
     }
@@ -130,7 +126,7 @@ export class OAuth2ClientCredentials {
    * 4. Cache the new token for future use
    *
    * @param forceRefresh - If true, bypasses cache and forces a new token request
-   * @returns A promise that resolves to a tuple containing [accessToken, expiresInSeconds]
+   * @returns A promise that resolves to a RefreshTokenResponse object containing accessToken and expiresAt
    * @throws {Error} If token retrieval fails
    */
   async getToken(forceRefresh: boolean = false): Promise<RefreshTokenResponse> {
@@ -173,7 +169,7 @@ export class OAuth2ClientCredentials {
         : DEFAULT_EXPIRE_IN_SECONDS;
 
     return Object.freeze({
-      expiresAt: Date.now() + expiresIn * 1000,
+      expiresAt: new Date(Date.now() + expiresIn * 1000),
       accessToken: result.access_token,
     });
   }

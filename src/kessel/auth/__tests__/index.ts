@@ -123,7 +123,7 @@ describe("OAuth2ClientCredentials", () => {
       const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Set up a mock cache by accessing the private property
-      const futureTime = Date.now() + 600000; // 10 minutes in the future
+      const futureTime = new Date(Date.now() + 600000); // 10 minutes in the future
       (tokenRetriever as any).tokenCache = {
         accessToken: "test-token",
         expiresAt: futureTime,
@@ -136,7 +136,7 @@ describe("OAuth2ClientCredentials", () => {
       const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Set up a mock cache that's expired
-      const pastTime = Date.now() - 1000; // 1 second ago
+      const pastTime = new Date(Date.now() - 1000); // 1 second ago
       (tokenRetriever as any).tokenCache = {
         accessToken: "test-token",
         expiresAt: pastTime,
@@ -151,7 +151,7 @@ describe("OAuth2ClientCredentials", () => {
       const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Set up a valid cached token
-      const futureTime = Date.now() + 600000;
+      const futureTime = new Date(Date.now() + 600000);
       (tokenRetriever as any).tokenCache = {
         accessToken: "cached-token",
         expiresAt: futureTime,
@@ -212,8 +212,12 @@ describe("OAuth2ClientCredentials", () => {
 
       const cache = (tokenRetriever as any).tokenCache;
       expect(cache.accessToken).toBe("new-token");
-      expect(cache.expiresAt).toBeGreaterThanOrEqual(beforeTime + 3600000); // Should be about 1 hour from now
-      expect(cache.expiresAt).toBeLessThanOrEqual(afterTime + 3600000 + 1000); // Allow some margin
+      expect(cache.expiresAt.getTime()).toBeGreaterThanOrEqual(
+        beforeTime + 3600000,
+      ); // Should be about 1 hour from now
+      expect(cache.expiresAt.getTime()).toBeLessThanOrEqual(
+        afterTime + 3600000 + 1000,
+      ); // Allow some margin
     });
   });
 
@@ -278,7 +282,7 @@ describe("OAuth2ClientCredentials", () => {
       const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Set up a cache that expires just within the expiration window
-      const almostExpiredTime = Date.now() + 200000; // 200 seconds (less than 300 second window)
+      const almostExpiredTime = new Date(Date.now() + 200000); // 200 seconds (less than 300 second window)
       (tokenRetriever as any).tokenCache = {
         accessToken: "almost-expired-token",
         expiresAt: almostExpiredTime,
@@ -291,7 +295,7 @@ describe("OAuth2ClientCredentials", () => {
       const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Set up a cache that expires at exactly the expiration window
-      const exactExpirationTime = Date.now() + 300000; // Exactly 300 seconds (5 minutes)
+      const exactExpirationTime = new Date(Date.now() + 300000); // Exactly 300 seconds (5 minutes)
       (tokenRetriever as any).tokenCache = {
         accessToken: "exact-expiration-token",
         expiresAt: exactExpirationTime,
@@ -304,7 +308,7 @@ describe("OAuth2ClientCredentials", () => {
       const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Set up a cache that expires far in the future
-      const farFutureTime = Date.now() + 3600000; // 1 hour
+      const farFutureTime = new Date(Date.now() + 3600000); // 1 hour
       (tokenRetriever as any).tokenCache = {
         accessToken: "far-future-token",
         expiresAt: farFutureTime,
@@ -317,7 +321,7 @@ describe("OAuth2ClientCredentials", () => {
       const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Set up a cache that expired in the past
-      const pastTime = Date.now() - 3600000; // 1 hour ago
+      const pastTime = new Date(Date.now() - 3600000); // 1 hour ago
       (tokenRetriever as any).tokenCache = {
         accessToken: "expired-token",
         expiresAt: pastTime,

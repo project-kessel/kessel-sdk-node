@@ -270,12 +270,14 @@ const authClient = new OAuth2ClientCredentials({
   tokenEndpoint: discovery.tokenEndpoint,
 });
 
-// Get a token (returns [token, expiresInSeconds])
-const [accessToken, expiresAt] = await authClient.getToken();
-console.log(`Token: ${accessToken}, expires in ${expiresIn} seconds`);
+// Get a token (returns RefreshTokenResponse object)
+const tokenResponse = await authClient.getToken();
+console.log(
+  `Token: ${tokenResponse.accessToken}, expires at: ${tokenResponse.expiresAt}`,
+);
 
 // Force refresh a token
-const [newToken, newExpiresAt] = await authClient.getToken(true);
+const newTokenResponse = await authClient.getToken(true);
 ```
 
 ## Examples
