@@ -3,8 +3,7 @@ import {
   ChannelOptions,
   Client,
   ClientUnaryCall,
-  InterceptingCall,
-  Interceptor,
+  credentials,
   Metadata,
   ServiceError,
   VerifyOptions,
@@ -22,8 +21,7 @@ import {
   IncompleteKesselConfigurationError,
 } from "../inventory";
 import { SecureContext } from "node:tls";
-import { Status } from "@grpc/grpc-js/build/src/constants";
-import { OAuthTokenRetriever } from "../auth";
+import { OAuth2ClientCredentials } from "../auth";
 
 interface CallbackClientMethod<
   TRequest = unknown,
@@ -176,6 +174,15 @@ export interface GRpcClientConfig extends ClientConfig {
   }>;
 }
 
+export const oauth2CallCredentials = (auth: OAuth2ClientCredentials) => {
+  return credentials.createFromMetadataGenerator(async (options, callback) => {
+    const token = (await auth.getToken()).accessToken;
+    const metadata = new Metadata();
+    metadata.add("Authorization", `Bearer ${token}`);
+    callback(null, metadata);
+  });
+};
+
 /**
  * Builder class for creating configured Kessel Inventory Service clients.
  * Provides a fluent API for setting up gRPC client configuration and returns
@@ -267,44 +274,6 @@ export abstract class GRpcClientBuilder<T> {
     if (missingFields.length > 0) {
       throw new IncompleteKesselConfigurationError(missingFields);
     }
-  }
-
-  /**
-   * Creates a gRPC interceptor that handles OAuth authentication.
-   *
-   * @returns A gRPC interceptor that automatically adds authentication headers
-   * @throws {Error} If called without valid auth configuration
-   */
-  protected createAuthInterceptor(): Interceptor {
-    if (!this._auth) {
-      throw new Error(
-        "Requested to create auth interceptor without a valid auth. This is a bug.",
-      );
-    }
-
-    const auth = { ...this._auth };
-    const tokenRetriever = new OAuthTokenRetriever(auth);
-
-    return (options, nextCall): InterceptingCall => {
-      return new InterceptingCall(nextCall(options), {
-        start: async (metadata, listener, next) => {
-          try {
-            const token = await tokenRetriever.getNextToken();
-
-            metadata.set("Authorization", `Bearer ${token}`);
-
-            next(metadata, listener);
-          } catch (error) {
-            const status = {
-              code: Status.UNAUTHENTICATED,
-              details: `Failed to acquire authentication token: ${error}`,
-              metadata: new Metadata(),
-            };
-            listener.onReceiveStatus(status);
-          }
-        },
-      });
-    };
   }
 
   /**
@@ -649,16 +618,19 @@ export const ClientBuilderFactory = <T extends Client>(
      */
     public build(): PromisifiedClient<T> {
       this.validate();
-      const interceptors: Array<Interceptor> = [];
+
+      let channelCredentials = this._credentials;
 
       if (this._auth) {
-        interceptors.push(this.createAuthInterceptor());
+        channelCredentials = credentials.combineChannelCredentials(
+          channelCredentials,
+          oauth2CallCredentials(new OAuth2ClientCredentials(this._auth)),
+        );
       }
 
       return promisifyClient(
-        new ctor(this._target, this._credentials, {
+        new ctor(this._target, channelCredentials, {
           ...this._channelOptions,
-          interceptors: interceptors,
         }),
       );
     }

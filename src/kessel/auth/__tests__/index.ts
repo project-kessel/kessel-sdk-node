@@ -1,4 +1,4 @@
-import { OAuthTokenRetriever } from "../index";
+import { OAuth2ClientCredentials, fetchOIDCDiscovery } from "../index";
 
 // Mock oauth4webapi module
 const mockOAuth = {
@@ -12,11 +12,78 @@ const mockOAuth = {
 // Mock the oauth4webapi module
 jest.mock("oauth4webapi", () => mockOAuth);
 
-describe("OAuthTokenRetriever", () => {
+describe("fetchOIDCDiscovery", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.resetModules();
+  });
+
+  it("successfully discovers token endpoint", async () => {
+    const mockResponse = {};
+    const mockAuthServer = {
+      token_endpoint: "https://example.com/token",
+    };
+
+    mockOAuth.discoveryRequest.mockResolvedValue(mockResponse);
+    mockOAuth.processDiscoveryResponse.mockResolvedValue(mockAuthServer);
+
+    const result = await fetchOIDCDiscovery("https://example.com/auth");
+
+    expect(result.tokenEndpoint).toBe("https://example.com/token");
+    expect(mockOAuth.discoveryRequest).toHaveBeenCalledWith(
+      new URL("https://example.com/auth"),
+    );
+    expect(mockOAuth.processDiscoveryResponse).toHaveBeenCalledWith(
+      new URL("https://example.com/auth"),
+      mockResponse,
+    );
+  });
+
+  it("throws error when token endpoint is missing", async () => {
+    const mockResponse = {};
+    const mockAuthServer = {}; // No token_endpoint
+
+    mockOAuth.discoveryRequest.mockResolvedValue(mockResponse);
+    mockOAuth.processDiscoveryResponse.mockResolvedValue(mockAuthServer);
+
+    await expect(
+      fetchOIDCDiscovery("https://example.com/auth"),
+    ).rejects.toThrow(
+      "Token endpoint could not be discovered from issuer URL.",
+    );
+  });
+
+  it("handles discovery request failures", async () => {
+    const networkError = new Error("Network error");
+    mockOAuth.discoveryRequest.mockRejectedValue(networkError);
+
+    await expect(
+      fetchOIDCDiscovery("https://example.com/auth"),
+    ).rejects.toThrow("Network error");
+  });
+
+  it("handles malformed discovery response", async () => {
+    const malformedResponse: any = null;
+    mockOAuth.discoveryRequest.mockResolvedValue(malformedResponse);
+    mockOAuth.processDiscoveryResponse.mockRejectedValue(
+      new Error("Malformed response"),
+    );
+
+    await expect(
+      fetchOIDCDiscovery("https://example.com/auth"),
+    ).rejects.toThrow("Malformed response");
+  });
+
+  it("handles invalid issuer URL", async () => {
+    await expect(fetchOIDCDiscovery("not-a-valid-url")).rejects.toThrow();
+  });
+});
+
+describe("OAuth2ClientCredentials", () => {
   const mockAuth = {
     clientId: "test-client-id",
     clientSecret: "test-client-secret",
-    issuerUrl: "https://example.com/auth",
+    tokenEndpoint: "https://example.com/token",
   };
 
   beforeEach(() => {
@@ -26,71 +93,37 @@ describe("OAuthTokenRetriever", () => {
 
   describe("ensureIsInitialized", () => {
     it("initializes OAuth components correctly", async () => {
-      const mockResponse = {};
-      const mockAuthServer = {
-        token_endpoint: "https://example.com/token",
-      };
-
-      mockOAuth.discoveryRequest.mockResolvedValue(mockResponse);
-      mockOAuth.processDiscoveryResponse.mockResolvedValue(mockAuthServer);
-
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
       await tokenRetriever.ensureIsInitialized();
 
-      expect(mockOAuth.discoveryRequest).toHaveBeenCalledWith(
-        new URL(mockAuth.issuerUrl),
-      );
-      expect(mockOAuth.processDiscoveryResponse).toHaveBeenCalledWith(
-        new URL(mockAuth.issuerUrl),
-        mockResponse,
-      );
-    });
-
-    it("throws error when token endpoint is missing", async () => {
-      const mockResponse = {};
-      const mockAuthServer = {}; // No token_endpoint
-
-      mockOAuth.discoveryRequest.mockResolvedValue(mockResponse);
-      mockOAuth.processDiscoveryResponse.mockResolvedValue(mockAuthServer);
-
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
-
-      await expect(tokenRetriever.ensureIsInitialized()).rejects.toThrow(
-        "Token endpoint could not be discovered from issuer URL.",
-      );
+      // Should not call discovery methods since we're using tokenEndpoint directly
+      expect(mockOAuth.discoveryRequest).not.toHaveBeenCalled();
+      expect(mockOAuth.processDiscoveryResponse).not.toHaveBeenCalled();
     });
 
     it("only initializes once", async () => {
-      const mockResponse = {};
-      const mockAuthServer = {
-        token_endpoint: "https://example.com/token",
-      };
-
-      mockOAuth.discoveryRequest.mockResolvedValue(mockResponse);
-      mockOAuth.processDiscoveryResponse.mockResolvedValue(mockAuthServer);
-
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Call twice
       await tokenRetriever.ensureIsInitialized();
       await tokenRetriever.ensureIsInitialized();
 
-      // Should only call discovery once
-      expect(mockOAuth.discoveryRequest).toHaveBeenCalledTimes(1);
+      // Should not call discovery methods
+      expect(mockOAuth.discoveryRequest).not.toHaveBeenCalled();
     });
   });
 
   describe("isCacheValid", () => {
     it("returns falsy when no cache exists", () => {
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
       expect(tokenRetriever.isCacheValid()).toBeFalsy();
     });
 
     it("returns true when cache is still valid", () => {
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Set up a mock cache by accessing the private property
-      const futureTime = Date.now() + 600000; // 10 minutes in the future
+      const futureTime = new Date(Date.now() + 600000); // 10 minutes in the future
       (tokenRetriever as any).tokenCache = {
         accessToken: "test-token",
         expiresAt: futureTime,
@@ -100,10 +133,10 @@ describe("OAuthTokenRetriever", () => {
     });
 
     it("returns falsy when cache is expired", () => {
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Set up a mock cache that's expired
-      const pastTime = Date.now() - 1000; // 1 second ago
+      const pastTime = new Date(Date.now() - 1000); // 1 second ago
       (tokenRetriever as any).tokenCache = {
         accessToken: "test-token",
         expiresAt: pastTime,
@@ -113,18 +146,18 @@ describe("OAuthTokenRetriever", () => {
     });
   });
 
-  describe("getNextToken", () => {
+  describe("getToken", () => {
     it("returns cached token when valid", async () => {
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Set up a valid cached token
-      const futureTime = Date.now() + 600000;
+      const futureTime = new Date(Date.now() + 600000);
       (tokenRetriever as any).tokenCache = {
         accessToken: "cached-token",
         expiresAt: futureTime,
       };
 
-      const token = await tokenRetriever.getNextToken();
+      const token = (await tokenRetriever.getToken()).accessToken;
       expect(token).toBe("cached-token");
 
       // Should not call OAuth methods
@@ -132,18 +165,12 @@ describe("OAuthTokenRetriever", () => {
     });
 
     it("fetches new token when cache is invalid", async () => {
-      const mockResponse = {};
-      const mockAuthServer = {
-        token_endpoint: "https://example.com/token",
-      };
       const mockTokenResponse = {};
       const mockTokenResult = {
         access_token: "new-token",
         expires_in: 3600,
       };
 
-      mockOAuth.discoveryRequest.mockResolvedValue(mockResponse);
-      mockOAuth.processDiscoveryResponse.mockResolvedValue(mockAuthServer);
       mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
       mockOAuth.clientCredentialsGrantRequest.mockResolvedValue(
         mockTokenResponse,
@@ -152,12 +179,9 @@ describe("OAuthTokenRetriever", () => {
         mockTokenResult,
       );
 
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
-      // Need to initialize first
-      await tokenRetriever.ensureIsInitialized();
-
-      const token = await tokenRetriever.getNextToken();
+      const token = (await tokenRetriever.getToken()).accessToken;
       expect(token).toBe("new-token");
 
       // Should have called OAuth methods
@@ -166,18 +190,12 @@ describe("OAuthTokenRetriever", () => {
     });
 
     it("caches the new token correctly", async () => {
-      const mockResponse = {};
-      const mockAuthServer = {
-        token_endpoint: "https://example.com/token",
-      };
       const mockTokenResponse = {};
       const mockTokenResult = {
         access_token: "new-token",
         expires_in: 3600,
       };
 
-      mockOAuth.discoveryRequest.mockResolvedValue(mockResponse);
-      mockOAuth.processDiscoveryResponse.mockResolvedValue(mockAuthServer);
       mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
       mockOAuth.clientCredentialsGrantRequest.mockResolvedValue(
         mockTokenResponse,
@@ -186,22 +204,26 @@ describe("OAuthTokenRetriever", () => {
         mockTokenResult,
       );
 
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       const beforeTime = Date.now();
-      await tokenRetriever.getNextToken();
+      await tokenRetriever.getToken();
       const afterTime = Date.now();
 
       const cache = (tokenRetriever as any).tokenCache;
       expect(cache.accessToken).toBe("new-token");
-      expect(cache.expiresAt).toBeGreaterThanOrEqual(beforeTime + 3600000); // Should be about 1 hour from now
-      expect(cache.expiresAt).toBeLessThanOrEqual(afterTime + 3600000 + 1000); // Allow some margin
+      expect(cache.expiresAt.getTime()).toBeGreaterThanOrEqual(
+        beforeTime + 3600000,
+      ); // Should be about 1 hour from now
+      expect(cache.expiresAt.getTime()).toBeLessThanOrEqual(
+        afterTime + 3600000 + 1000,
+      ); // Allow some margin
     });
   });
 
   describe("constructor", () => {
     it("stores auth configuration", () => {
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
       expect(tokenRetriever.auth).toBe(mockAuth);
     });
 
@@ -209,73 +231,36 @@ describe("OAuthTokenRetriever", () => {
       const customAuth = {
         clientId: "custom-client",
         clientSecret: "custom-secret",
-        issuerUrl: "https://custom.auth.server.com/auth",
+        tokenEndpoint: "https://custom.auth.server.com/token",
       };
 
-      const tokenRetriever = new OAuthTokenRetriever(customAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(customAuth);
       expect(tokenRetriever.auth).toBe(customAuth);
       expect(tokenRetriever.auth.clientId).toBe("custom-client");
-      expect(tokenRetriever.auth.issuerUrl).toBe(
-        "https://custom.auth.server.com/auth",
+      expect(tokenRetriever.auth.tokenEndpoint).toBe(
+        "https://custom.auth.server.com/token",
       );
     });
   });
 
   describe("Error Handling", () => {
-    it("handles discovery request failures", async () => {
-      const networkError = new Error("Network error");
-      mockOAuth.discoveryRequest.mockRejectedValue(networkError);
-
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
-
-      await expect(tokenRetriever.ensureIsInitialized()).rejects.toThrow(
-        "Network error",
-      );
-    });
-
-    it("handles malformed discovery response", async () => {
-      const malformedResponse: any = null;
-      mockOAuth.discoveryRequest.mockResolvedValue(malformedResponse);
-      mockOAuth.processDiscoveryResponse.mockRejectedValue(
-        new Error("Malformed response"),
-      );
-
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
-
-      await expect(tokenRetriever.getNextToken()).rejects.toThrow(
-        "Malformed response",
-      );
-    });
-
     it("handles token request failures", async () => {
-      const mockResponse = {};
-      const mockAuthServer = {
-        token_endpoint: "https://example.com/token",
-      };
       const tokenError = new Error("Token request failed");
 
-      mockOAuth.discoveryRequest.mockResolvedValue(mockResponse);
-      mockOAuth.processDiscoveryResponse.mockResolvedValue(mockAuthServer);
       mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
       mockOAuth.clientCredentialsGrantRequest.mockRejectedValue(tokenError);
 
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
-      await expect(tokenRetriever.getNextToken()).rejects.toThrow(
+      await expect(tokenRetriever.getToken()).rejects.toThrow(
         "Token request failed",
       );
     });
 
     it("handles invalid token response", async () => {
-      const mockResponse = {};
-      const mockAuthServer = {
-        token_endpoint: "https://example.com/token",
-      };
       const mockTokenResponse = {};
       const invalidTokenError = new Error("Invalid token format");
 
-      mockOAuth.discoveryRequest.mockResolvedValue(mockResponse);
-      mockOAuth.processDiscoveryResponse.mockResolvedValue(mockAuthServer);
       mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
       mockOAuth.clientCredentialsGrantRequest.mockResolvedValue(
         mockTokenResponse,
@@ -284,32 +269,20 @@ describe("OAuthTokenRetriever", () => {
         invalidTokenError,
       );
 
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
-      await expect(tokenRetriever.getNextToken()).rejects.toThrow(
+      await expect(tokenRetriever.getToken()).rejects.toThrow(
         "Invalid token format",
       );
-    });
-
-    it("handles invalid issuer URL", async () => {
-      const invalidAuth = {
-        clientId: "test-client",
-        clientSecret: "test-secret",
-        issuerUrl: "not-a-valid-url",
-      };
-
-      const tokenRetriever = new OAuthTokenRetriever(invalidAuth);
-
-      await expect(tokenRetriever.getNextToken()).rejects.toThrow();
     });
   });
 
   describe("Cache Management", () => {
     it("respects expiration window", () => {
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Set up a cache that expires just within the expiration window
-      const almostExpiredTime = Date.now() + 10000; // 10 seconds (less than 20 second window)
+      const almostExpiredTime = new Date(Date.now() + 200000); // 200 seconds (less than 300 second window)
       (tokenRetriever as any).tokenCache = {
         accessToken: "almost-expired-token",
         expiresAt: almostExpiredTime,
@@ -319,10 +292,10 @@ describe("OAuthTokenRetriever", () => {
     });
 
     it("handles cache with exact expiration time", () => {
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Set up a cache that expires at exactly the expiration window
-      const exactExpirationTime = Date.now() + 20000; // Exactly 20 seconds (the window)
+      const exactExpirationTime = new Date(Date.now() + 300000); // Exactly 300 seconds (5 minutes)
       (tokenRetriever as any).tokenCache = {
         accessToken: "exact-expiration-token",
         expiresAt: exactExpirationTime,
@@ -332,10 +305,10 @@ describe("OAuthTokenRetriever", () => {
     });
 
     it("handles cache with far future expiration", () => {
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Set up a cache that expires far in the future
-      const farFutureTime = Date.now() + 3600000; // 1 hour
+      const farFutureTime = new Date(Date.now() + 3600000); // 1 hour
       (tokenRetriever as any).tokenCache = {
         accessToken: "far-future-token",
         expiresAt: farFutureTime,
@@ -345,10 +318,10 @@ describe("OAuthTokenRetriever", () => {
     });
 
     it("handles cache with past expiration", () => {
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Set up a cache that expired in the past
-      const pastTime = Date.now() - 3600000; // 1 hour ago
+      const pastTime = new Date(Date.now() - 3600000); // 1 hour ago
       (tokenRetriever as any).tokenCache = {
         accessToken: "expired-token",
         expiresAt: pastTime,
@@ -360,18 +333,12 @@ describe("OAuthTokenRetriever", () => {
 
   describe("Token Lifecycle", () => {
     it("fetches token when not initialized", async () => {
-      const mockResponse = {};
-      const mockAuthServer = {
-        token_endpoint: "https://example.com/token",
-      };
       const mockTokenResponse = {};
       const mockTokenResult = {
         access_token: "fresh-token",
         expires_in: 3600,
       };
 
-      mockOAuth.discoveryRequest.mockResolvedValue(mockResponse);
-      mockOAuth.processDiscoveryResponse.mockResolvedValue(mockAuthServer);
       mockOAuth.ClientSecretPost = jest
         .fn()
         .mockReturnValue("mock-client-auth");
@@ -382,26 +349,20 @@ describe("OAuthTokenRetriever", () => {
         mockTokenResult,
       );
 
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Don't call ensureIsInitialized manually
-      const token = await tokenRetriever.getNextToken();
+      const token = (await tokenRetriever.getToken()).accessToken;
       expect(token).toBe("fresh-token");
     });
 
     it("handles token with zero expiration", async () => {
-      const mockResponse = {};
-      const mockAuthServer = {
-        token_endpoint: "https://example.com/token",
-      };
       const mockTokenResponse = {};
       const mockTokenResult = {
         access_token: "zero-expiry-token",
         expires_in: 0,
       };
 
-      mockOAuth.discoveryRequest.mockResolvedValue(mockResponse);
-      mockOAuth.processDiscoveryResponse.mockResolvedValue(mockAuthServer);
       mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
       mockOAuth.clientCredentialsGrantRequest.mockResolvedValue(
         mockTokenResponse,
@@ -410,9 +371,9 @@ describe("OAuthTokenRetriever", () => {
         mockTokenResult,
       );
 
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
-      const token = await tokenRetriever.getNextToken();
+      const token = (await tokenRetriever.getToken()).accessToken;
       expect(token).toBe("zero-expiry-token");
 
       // Token should be cached but immediately invalid
@@ -420,18 +381,12 @@ describe("OAuthTokenRetriever", () => {
     });
 
     it("handles token with very long expiration", async () => {
-      const mockResponse = {};
-      const mockAuthServer = {
-        token_endpoint: "https://example.com/token",
-      };
       const mockTokenResponse = {};
       const mockTokenResult = {
         access_token: "long-lived-token",
         expires_in: 86400, // 24 hours
       };
 
-      mockOAuth.discoveryRequest.mockResolvedValue(mockResponse);
-      mockOAuth.processDiscoveryResponse.mockResolvedValue(mockAuthServer);
       mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
       mockOAuth.clientCredentialsGrantRequest.mockResolvedValue(
         mockTokenResponse,
@@ -440,9 +395,9 @@ describe("OAuthTokenRetriever", () => {
         mockTokenResult,
       );
 
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
-      const token = await tokenRetriever.getNextToken();
+      const token = (await tokenRetriever.getToken()).accessToken;
       expect(token).toBe("long-lived-token");
 
       // Token should be cached and valid
@@ -450,18 +405,12 @@ describe("OAuthTokenRetriever", () => {
     });
 
     it("handles concurrent token requests", async () => {
-      const mockResponse = {};
-      const mockAuthServer = {
-        token_endpoint: "https://example.com/token",
-      };
       const mockTokenResponse = {};
       const mockTokenResult = {
         access_token: "concurrent-token",
         expires_in: 3600,
       };
 
-      mockOAuth.discoveryRequest.mockResolvedValue(mockResponse);
-      mockOAuth.processDiscoveryResponse.mockResolvedValue(mockAuthServer);
       mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
       mockOAuth.clientCredentialsGrantRequest.mockResolvedValue(
         mockTokenResponse,
@@ -470,17 +419,19 @@ describe("OAuthTokenRetriever", () => {
         mockTokenResult,
       );
 
-      const tokenRetriever = new OAuthTokenRetriever(mockAuth);
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       // Make multiple concurrent requests
       const promises = Array.from({ length: 5 }, () =>
-        tokenRetriever.getNextToken(),
+        tokenRetriever.getToken(),
       );
       const tokens = await Promise.all(promises);
 
       // All should return the same token
       expect(tokens).toHaveLength(5);
-      tokens.forEach((token) => expect(token).toBe("concurrent-token"));
+      tokens.forEach((token) =>
+        expect(token.accessToken).toBe("concurrent-token"),
+      );
     });
   });
 
@@ -489,10 +440,10 @@ describe("OAuthTokenRetriever", () => {
       const authWithEmptyClientId = {
         clientId: "",
         clientSecret: "test-secret",
-        issuerUrl: "https://example.com/auth",
+        tokenEndpoint: "https://example.com/token",
       };
 
-      const tokenRetriever = new OAuthTokenRetriever(authWithEmptyClientId);
+      const tokenRetriever = new OAuth2ClientCredentials(authWithEmptyClientId);
       expect(tokenRetriever.auth.clientId).toBe("");
     });
 
@@ -500,34 +451,36 @@ describe("OAuthTokenRetriever", () => {
       const authWithEmptySecret = {
         clientId: "test-client",
         clientSecret: "",
-        issuerUrl: "https://example.com/auth",
+        tokenEndpoint: "https://example.com/token",
       };
 
-      const tokenRetriever = new OAuthTokenRetriever(authWithEmptySecret);
+      const tokenRetriever = new OAuth2ClientCredentials(authWithEmptySecret);
       expect(tokenRetriever.auth.clientSecret).toBe("");
     });
 
-    it("handles issuer URL with trailing slash", () => {
+    it("handles token endpoint with trailing slash", () => {
       const authWithTrailingSlash = {
         clientId: "test-client",
         clientSecret: "test-secret",
-        issuerUrl: "https://example.com/auth/",
+        tokenEndpoint: "https://example.com/token/",
       };
 
-      const tokenRetriever = new OAuthTokenRetriever(authWithTrailingSlash);
-      expect(tokenRetriever.auth.issuerUrl).toBe("https://example.com/auth/");
+      const tokenRetriever = new OAuth2ClientCredentials(authWithTrailingSlash);
+      expect(tokenRetriever.auth.tokenEndpoint).toBe(
+        "https://example.com/token/",
+      );
     });
 
-    it("handles issuer URL with query parameters", () => {
+    it("handles token endpoint with query parameters", () => {
       const authWithQueryParams = {
         clientId: "test-client",
         clientSecret: "test-secret",
-        issuerUrl: "https://example.com/auth?param=value",
+        tokenEndpoint: "https://example.com/token?param=value",
       };
 
-      const tokenRetriever = new OAuthTokenRetriever(authWithQueryParams);
-      expect(tokenRetriever.auth.issuerUrl).toBe(
-        "https://example.com/auth?param=value",
+      const tokenRetriever = new OAuth2ClientCredentials(authWithQueryParams);
+      expect(tokenRetriever.auth.tokenEndpoint).toBe(
+        "https://example.com/token?param=value",
       );
     });
 
@@ -535,10 +488,10 @@ describe("OAuthTokenRetriever", () => {
       const authWithSpecialChars = {
         clientId: "test-client!@#$%^&*()",
         clientSecret: "test-secret-with-special-chars!@#$%^&*()",
-        issuerUrl: "https://example.com/auth",
+        tokenEndpoint: "https://example.com/token",
       };
 
-      const tokenRetriever = new OAuthTokenRetriever(authWithSpecialChars);
+      const tokenRetriever = new OAuth2ClientCredentials(authWithSpecialChars);
       expect(tokenRetriever.auth.clientId).toBe("test-client!@#$%^&*()");
       expect(tokenRetriever.auth.clientSecret).toBe(
         "test-secret-with-special-chars!@#$%^&*()",

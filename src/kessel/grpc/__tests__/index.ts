@@ -306,12 +306,12 @@ describe("GRpcClientBuilder", () => {
       const authConfig = {
         clientId: "test-client-id",
         clientSecret: "test-secret",
-        issuerUrl: "https://auth.example.com/oauth2",
+        tokenEndpoint: "https://auth.example.com/oauth2",
       };
 
       const builder = TestClientBuilder.builder().withConfig({
         target: "localhost:9000",
-        credentials: { type: "insecure" },
+        credentials: { type: "secure" },
         auth: authConfig,
       });
 
@@ -411,7 +411,7 @@ describe("Auth Interceptor", () => {
     const authConfig = {
       clientId: "test-client",
       clientSecret: "test-secret",
-      issuerUrl: "https://example.com/auth",
+      tokenEndpoint: "https://example.com/auth",
     };
 
     const builder = TestClientBuilder.builder()
@@ -419,46 +419,6 @@ describe("Auth Interceptor", () => {
       .withAuth(authConfig);
 
     expect(() => builder.build()).not.toThrow();
-  });
-
-  it("Throws error when creating auth interceptor without auth config", () => {
-    const builder = TestClientBuilder.builder().withTarget("localhost:9000");
-
-    // Access the protected method to test error handling
-    expect(() => (builder as any).createAuthInterceptor()).toThrow(
-      "Requested to create auth interceptor without a valid auth. This is a bug.",
-    );
-  });
-
-  it("Auth interceptor sets Bearer token in metadata", async () => {
-    const authConfig = {
-      clientId: "test-client",
-      clientSecret: "test-secret",
-      issuerUrl: "https://example.com/auth",
-    };
-
-    const builder = TestClientBuilder.builder()
-      .withTarget("localhost:9000")
-      .withAuth(authConfig);
-
-    const interceptor = (builder as any).createAuthInterceptor();
-    expect(interceptor).toBeDefined();
-    expect(typeof interceptor).toBe("function");
-  });
-
-  it("Auth interceptor handles token retrieval errors", async () => {
-    const authConfig = {
-      clientId: "test-client",
-      clientSecret: "test-secret",
-      issuerUrl: "https://invalid-url",
-    };
-
-    const builder = TestClientBuilder.builder()
-      .withTarget("localhost:9000")
-      .withAuth(authConfig);
-
-    const interceptor = (builder as any).createAuthInterceptor();
-    expect(interceptor).toBeDefined();
   });
 });
 
@@ -518,7 +478,7 @@ describe("Complex Configuration Scenarios", () => {
       auth: {
         clientId: "production-client",
         clientSecret: "production-secret",
-        issuerUrl: "https://auth.example.com",
+        tokenEndpoint: "https://auth.example.com",
       },
       channelOptions: {
         "grpc.max_receive_message_length": 4 * 1024 * 1024,

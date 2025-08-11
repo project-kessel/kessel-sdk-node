@@ -1,32 +1,69 @@
 import type * as oauth from "oauth4webapi";
 import { ClientConfigAuth } from "../inventory";
 
-const EXPIRATION_WINDOW = 20000; // 20 seconds in milliseconds
+const EXPIRATION_WINDOW_MILLI = 300000; // 5 minutes in milliseconds
+const DEFAULT_EXPIRE_IN_SECONDS = 3600; // 1 hour in seconds
 
-interface TokenData {
+interface RefreshTokenResponse {
   accessToken: string;
-  expiresAt: number;
+  expiresAt: Date;
 }
+
+export interface OIDCDiscoveryMetadata {
+  tokenEndpoint: string;
+}
+
+const importOAuth4WebApi = async (): Promise<typeof oauth> => {
+  return await import("oauth4webapi");
+};
+
+export const fetchOIDCDiscovery = async (
+  issueUrl: string,
+): Promise<OIDCDiscoveryMetadata> => {
+  const oauth = await importOAuth4WebApi();
+  const issuerUrlObject = new URL(issueUrl);
+  const response = await oauth.discoveryRequest(issuerUrlObject);
+  const authServer = await oauth.processDiscoveryResponse(
+    issuerUrlObject,
+    response,
+  );
+
+  if (!authServer.token_endpoint) {
+    throw new Error("Token endpoint could not be discovered from issuer URL.");
+  }
+
+  return {
+    tokenEndpoint: authServer.token_endpoint,
+  };
+};
 
 /**
  * Handles OAuth 2.0 Client Credentials flow for authentication.
  *
  * This class manages token retrieval, caching, and automatic refresh for OAuth authentication.
- * It performs OAuth discovery to find the token endpoint and caches tokens until near expiration.
+ * It requires a token endpoint URL (which can be discovered using fetchOIDCDiscovery) and caches tokens until near expiration.
  *
  * @example
  * ```typescript
- * const tokenRetriever = new OAuthTokenRetriever({
+ * import { fetchOIDCDiscovery, OAuth2ClientCredentials } from "@project-kessel/kessel-sdk/kessel/auth";
+ *
+ * // First, discover the token endpoint
+ * const discovery = await fetchOIDCDiscovery("https://auth.example.com");
+ *
+ * // Create the OAuth client with the discovered endpoint
+ * const authClient = new OAuth2ClientCredentials({
  *   clientId: "my-client-id",
  *   clientSecret: "my-client-secret",
- *   issuerUrl: "https://auth.example.com"
+ *   tokenEndpoint: discovery.tokenEndpoint
  * });
  *
- * const token = await tokenRetriever.getNextToken();
+ * // Get a token (returns RefreshTokenResponse object)
+ * const tokenResponse = await authClient.getToken();
+ * console.log(`Token: ${tokenResponse.accessToken}, expires at: ${tokenResponse.expiresAt}`);
  * ```
  */
-export class OAuthTokenRetriever {
-  private tokenCache?: TokenData;
+export class OAuth2ClientCredentials {
+  private tokenCache?: RefreshTokenResponse;
   private authServer: oauth.AuthorizationServer;
   private initialized: boolean = false;
   private ClientSecretPost: typeof oauth.ClientSecretPost;
@@ -34,33 +71,26 @@ export class OAuthTokenRetriever {
   private processClientCredentialsResponse: typeof oauth.processClientCredentialsResponse;
 
   /**
-   * Creates a new OAuthTokenRetriever instance.
+   * Creates a new OAuth2ClientCredentials instance.
    *
-   * @param auth - The OAuth configuration object
+   * @param auth - The OAuth configuration object containing clientId, clientSecret, and tokenEndpoint
    */
-  constructor(readonly auth: ClientConfigAuth) {}
+  constructor(readonly auth: ClientConfigAuth) {
+    this.authServer = {
+      issuer: auth.tokenEndpoint,
+      token_endpoint: auth.tokenEndpoint,
+    };
+  }
 
   /**
-   * Ensures the OAuth client is initialized by performing discovery.
-   * This method is called automatically by getNextToken() and is idempotent.
+   * Ensures the OAuth client is initialized.
+   * This method is called automatically by getToken() and is idempotent.
    *
-   * @throws {Error} If the token endpoint cannot be discovered from the issuer URL
+   * @throws {Error} If initialization fails
    */
-  public async ensureIsInitialized() {
+  async ensureIsInitialized() {
     if (!this.initialized) {
-      const oauth = await import("oauth4webapi");
-      const issueUrl = new URL(this.auth.issuerUrl);
-
-      const response = await oauth.discoveryRequest(issueUrl);
-      this.authServer = await oauth.processDiscoveryResponse(
-        issueUrl,
-        response,
-      );
-      if (!this.authServer.token_endpoint) {
-        throw new Error(
-          "Token endpoint could not be discovered from issuer URL.",
-        );
-      }
+      const oauth = await importOAuth4WebApi();
 
       this.ClientSecretPost = oauth.ClientSecretPost;
       this.clientCredentialsGrantRequest = oauth.clientCredentialsGrantRequest;
@@ -79,10 +109,11 @@ export class OAuthTokenRetriever {
   isCacheValid(): boolean {
     if (
       this.tokenCache &&
-      this.tokenCache.expiresAt > Date.now() + EXPIRATION_WINDOW
+      this.tokenCache.expiresAt.getTime() > Date.now() + EXPIRATION_WINDOW_MILLI
     ) {
       return true;
     }
+    return false;
   }
 
   /**
@@ -90,20 +121,26 @@ export class OAuthTokenRetriever {
    *
    * This method will:
    * 1. Initialize the OAuth client if not already done
-   * 2. Return the cached token if it's still valid
+   * 2. Return the cached token if it's still valid (unless forceRefresh is true)
    * 3. Fetch a new token from the OAuth server if needed
    * 4. Cache the new token for future use
    *
-   * @returns A promise that resolves to a valid access token
+   * @param forceRefresh - If true, bypasses cache and forces a new token request
+   * @returns A promise that resolves to a RefreshTokenResponse object containing accessToken and expiresAt
    * @throws {Error} If token retrieval fails
    */
-  async getNextToken(): Promise<string> {
+  async getToken(forceRefresh: boolean = false): Promise<RefreshTokenResponse> {
     await this.ensureIsInitialized();
 
-    if (this.isCacheValid()) {
-      return this.tokenCache.accessToken;
+    if (!forceRefresh && this.isCacheValid()) {
+      return this.tokenCache;
     }
 
+    this.tokenCache = await this.refresh();
+    return this.tokenCache;
+  }
+
+  private async refresh(): Promise<Readonly<RefreshTokenResponse>> {
     const client: oauth.Client = { client_id: this.auth.clientId };
     const clientAuth = this.ClientSecretPost(this.auth.clientSecret);
     const parameters = new URLSearchParams();
@@ -120,11 +157,20 @@ export class OAuthTokenRetriever {
       response,
     );
 
-    this.tokenCache = {
-      accessToken: result.access_token,
-      expiresAt: Date.now() + result.expires_in * 1000,
-    };
+    if (!result.access_token) {
+      throw new Error("No access token received from OAuth server");
+    }
 
-    return this.tokenCache.accessToken;
+    // Handle missing or invalid expires_in - default to 1 hour if not provided
+    // Note: expires_in of 0 is valid and means "immediately expired"
+    const expiresIn =
+      typeof result.expires_in === "number" && result.expires_in >= 0
+        ? result.expires_in
+        : DEFAULT_EXPIRE_IN_SECONDS;
+
+    return Object.freeze({
+      expiresAt: new Date(Date.now() + expiresIn * 1000),
+      accessToken: result.access_token,
+    });
   }
 }

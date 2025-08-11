@@ -186,7 +186,7 @@ const config: ClientConfig = {
   auth: {
     clientId: "my-service",
     clientSecret: "my-secret",
-    issuerUrl: "https://auth.example.com",
+    tokenEndpoint: "https://auth.example.com/token",
   },
   channelOptions: {
     "grpc.max_receive_message_length": 4 * 1024 * 1024,
@@ -203,11 +203,19 @@ The SDK supports OAuth 2.0 Client Credentials flow for authentication:
 
 ### Basic OAuth Configuration
 
+First, discover the token endpoint using the issuer URL:
+
 ```typescript
+import { fetchOIDCDiscovery } from "@project-kessel/kessel-sdk/kessel/auth";
+
+// Discover the token endpoint from the issuer URL
+const discovery = await fetchOIDCDiscovery("https://auth.example.com");
+
+// Configure the client with the discovered token endpoint
 .withAuth({
   clientId: "your-client-id",
   clientSecret: "your-client-secret",
-  issuerUrl: "https://auth.example.com"
+  tokenEndpoint: discovery.tokenEndpoint
 })
 ```
 
@@ -216,22 +224,60 @@ The SDK supports OAuth 2.0 Client Credentials flow for authentication:
 - **Automatic Token Management**: Tokens are automatically fetched and refreshed
 - **Token Caching**: Tokens are cached and reused until near expiration
 - **Expiration Window**: Tokens are refreshed 20 seconds before expiration
+- **OIDC Discovery**: Automatic discovery of OAuth endpoints from issuer URLs
 
 ### OAuth Example
 
 ```typescript
+import { fetchOIDCDiscovery } from "@project-kessel/kessel-sdk/kessel/auth";
+
+// Discover the token endpoint
+const discovery = await fetchOIDCDiscovery(
+  "https://sso.server/auth/realms/my-realm",
+);
+
 const client = ClientBuilder.builder()
   .withTarget("kessel-api.example.com:443")
   .withSecureCredentials()
   .withAuth({
     clientId: "inventory-client",
     clientSecret: process.env.CLIENT_SECRET,
-    issuerUrl: "https://sso.server/auth/realms/my-realm",
+    tokenEndpoint: discovery.tokenEndpoint,
   })
   .build();
 
 // The client automatically handles authentication
 const response = await client.check(request);
+```
+
+### Manual Token Management
+
+If you need direct access to tokens:
+
+```typescript
+import {
+  OAuth2ClientCredentials,
+  fetchOIDCDiscovery,
+} from "@project-kessel/kessel-sdk/kessel/auth";
+
+// Discover the token endpoint
+const discovery = await fetchOIDCDiscovery("https://auth.example.com");
+
+// Create an OAuth client
+const authClient = new OAuth2ClientCredentials({
+  clientId: "your-client-id",
+  clientSecret: "your-client-secret",
+  tokenEndpoint: discovery.tokenEndpoint,
+});
+
+// Get a token (returns RefreshTokenResponse object)
+const tokenResponse = await authClient.getToken();
+console.log(
+  `Token: ${tokenResponse.accessToken}, expires at: ${tokenResponse.expiresAt}`,
+);
+
+// Force refresh a token
+const newTokenResponse = await authClient.getToken(true);
 ```
 
 ## Examples
@@ -268,7 +314,7 @@ const client = ClientBuilder.builder()
   .withAuth({
     clientId: process.env.KESSEL_CLIENT_ID,
     clientSecret: process.env.KESSEL_CLIENT_SECRET,
-    issuerUrl: process.env.KESSEL_ISSUER_URL,
+    tokenEndpoint: process.env.KESSEL_TOKEN_ENDPOINT,
   })
   .withChannelOption("grpc.max_receive_message_length", 10 * 1024 * 1024)
   .build();
@@ -333,7 +379,7 @@ interface ClientConfigKeepAlive {
 interface ClientConfigAuth {
   clientId: string; // OAuth client ID
   clientSecret: string; // OAuth client secret
-  issuerUrl: string; // OAuth issuer URL
+  tokenEndpoint: string; // OAuth token endpoint URL
 }
 ```
 
