@@ -1,5 +1,5 @@
 import { KesselInventoryHealthServiceClient } from "./health";
-import { ClientBuilderFactory } from "../../grpc";
+import { ClientBuilderFactory } from "..";
 
 /**
  * Client builder for the Kessel Inventory Health Service (v1).

@@ -1,4 +1,4 @@
-import { ClientBuilderFactory } from "../../grpc";
+import { ClientBuilderFactory } from "..";
 import { KesselK8SPolicyIsPropagatedToK8SClusterServiceClient } from "./relationships/k8spolicy_ispropagatedto_k8scluster_service";
 import { KesselK8sClusterServiceClient } from "./resources/k8s_clusters_service";
 import { KesselK8sPolicyServiceClient } from "./resources/k8s_policies_service";

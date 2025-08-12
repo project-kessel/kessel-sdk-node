@@ -1,5 +1,5 @@
 import { KesselInventoryServiceClient } from "./inventory_service";
-import { ClientBuilderFactory } from "../../grpc";
+import { ClientBuilderFactory } from "..";
 
 /**
  * Client builder for the Kessel Inventory Service (v1beta2).
