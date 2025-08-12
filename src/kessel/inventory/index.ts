@@ -90,7 +90,7 @@ export abstract class ClientBuilder<T extends Client> {
 
 export const ClientBuilderFactory = <T extends Client>(
   ctor: new (...args: ConstructorParameters<typeof Client>) => T,
-): typeof ClientBuilder<T> => {
+): new (target: string) => ClientBuilder<T> => {
   return class extends ClientBuilder<T> {
     protected get serviceConstructor(): {
       new (...args: ConstructorParameters<typeof Client>): T;
