@@ -1,6 +1,6 @@
 import { oauth2CallCredentials } from "../index";
 import { OAuth2ClientCredentials } from "../../auth";
-import { credentials, Metadata } from "@grpc/grpc-js";
+import { credentials } from "@grpc/grpc-js";
 
 describe("oauth2CallCredentials", () => {
   it("creates call credentials from OAuth2ClientCredentials", () => {
