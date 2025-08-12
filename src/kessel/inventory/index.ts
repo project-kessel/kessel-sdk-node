@@ -19,6 +19,10 @@ export abstract class ClientBuilder<T extends Client> {
 
   public constructor(target: string) {
     this._target = target;
+
+    if (!this._target || typeof this._target !== "string") {
+      throw new Error("Invalid target type");
+    }
   }
 
   public oauth2ClientAuthenticated(
