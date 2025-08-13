@@ -1,4 +1,4 @@
-import { ClientBuilderFactory } from "..";
+import { clientBuilderForStub } from "..";
 import { KesselK8SPolicyIsPropagatedToK8SClusterServiceClient } from "./relationships/k8spolicy_ispropagatedto_k8scluster_service";
 import { KesselK8sClusterServiceClient } from "./resources/k8s_clusters_service";
 import { KesselK8sPolicyServiceClient } from "./resources/k8s_policies_service";
@@ -19,7 +19,7 @@ import { KesselRhelHostServiceClient } from "./resources/rhel_hosts_service";
  * ```
  */
 export const KesselK8SPolicyIsPropagatedToK8SClusterClientBuilder =
-  ClientBuilderFactory(KesselK8SPolicyIsPropagatedToK8SClusterServiceClient);
+  clientBuilderForStub(KesselK8SPolicyIsPropagatedToK8SClusterServiceClient);
 
 /**
  * Client builder for the Kessel K8s Cluster Resource Service (v1beta1).
@@ -33,7 +33,7 @@ export const KesselK8SPolicyIsPropagatedToK8SClusterClientBuilder =
  *   .build();
  * ```
  */
-export const KesselK8sClusterClientBuilder = ClientBuilderFactory(
+export const KesselK8sClusterClientBuilder = clientBuilderForStub(
   KesselK8sClusterServiceClient,
 );
 
@@ -49,7 +49,7 @@ export const KesselK8sClusterClientBuilder = ClientBuilderFactory(
  *   .build();
  * ```
  */
-export const KesselK8sPolicyClientBuilder = ClientBuilderFactory(
+export const KesselK8sPolicyClientBuilder = clientBuilderForStub(
   KesselK8sPolicyServiceClient,
 );
 
@@ -65,7 +65,7 @@ export const KesselK8sPolicyClientBuilder = ClientBuilderFactory(
  *   .build();
  * ```
  */
-export const KesselNotificationsIntegrationClientBuilder = ClientBuilderFactory(
+export const KesselNotificationsIntegrationClientBuilder = clientBuilderForStub(
   KesselNotificationsIntegrationServiceClient,
 );
 
@@ -81,6 +81,6 @@ export const KesselNotificationsIntegrationClientBuilder = ClientBuilderFactory(
  *   .build();
  * ```
  */
-export const KesselRhelHostClientBuilder = ClientBuilderFactory(
+export const KesselRhelHostClientBuilder = clientBuilderForStub(
   KesselRhelHostServiceClient,
 );

@@ -13,7 +13,7 @@ export abstract class ClientBuilder<T extends Client> {
   protected _channelCredentials: ChannelCredentials | undefined;
   protected _callCredentials: CallCredentials | undefined;
 
-  protected abstract get serviceConstructor(): new (
+  protected abstract get stubConstructor(): new (
     ...args: ConstructorParameters<typeof Client>
   ) => T;
 
@@ -72,7 +72,7 @@ export abstract class ClientBuilder<T extends Client> {
       );
     }
 
-    return new this.serviceConstructor(this._target, clientCredentials);
+    return new this.stubConstructor(this._target, clientCredentials);
   }
 
   public buildAsync(): PromisifiedClient<T> {
@@ -92,14 +92,14 @@ export abstract class ClientBuilder<T extends Client> {
   }
 }
 
-export const ClientBuilderFactory = <T extends Client>(
-  ctor: new (...args: ConstructorParameters<typeof Client>) => T,
+export const clientBuilderForStub = <T extends Client>(
+  stubConstructor: new (...args: ConstructorParameters<typeof Client>) => T,
 ): new (target: string) => ClientBuilder<T> => {
   return class extends ClientBuilder<T> {
-    protected get serviceConstructor(): {
+    protected get stubConstructor(): {
       new (...args: ConstructorParameters<typeof Client>): T;
     } {
-      return ctor;
+      return stubConstructor;
     }
   };
 };

@@ -1,5 +1,5 @@
 import { KesselInventoryHealthServiceClient } from "./health";
-import { ClientBuilderFactory } from "..";
+import { clientBuilderForStub } from "..";
 
 /**
  * Client builder for the Kessel Inventory Health Service (v1).
@@ -21,6 +21,6 @@ import { ClientBuilderFactory } from "..";
  * const response = await healthClient.check({});
  * ```
  */
-export const ClientBuilder = ClientBuilderFactory(
+export const ClientBuilder = clientBuilderForStub(
   KesselInventoryHealthServiceClient,
 );
