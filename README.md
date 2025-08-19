@@ -485,6 +485,28 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/). Version n
 
 **Note**: SDK versions across different languages (Ruby, Python, Go, etc.) do not need to be synchronized. Each language SDK can evolve independently based on its specific requirements and release schedule.
 
+### Prerequisites for Release
+
+- Write access to the GitHub repository
+- npm account with publish access to the `@project-kessel/kessel-sdk` package
+- Ensure CI/CD tests are passing
+- Review and update CHANGELOG or release notes as needed
+- Node 20 or higher
+- Required tools installed:
+  ```bash
+  pip install build twine
+  pip install "kessel-sdk[dev]"
+  ```
+- [buf](https://github.com/bufbuild/buf) for protobuf/gRPC code generation:
+
+  ```bash
+  # On macOS
+  brew install bufbuild/buf/buf
+
+  # On Linux
+  curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" -o "/usr/local/bin/buf" && chmod +x "/usr/local/bin/buf"
+  ```
+
 ### Release Process
 
 1. **Update the Version**
@@ -550,13 +572,6 @@ git push origin vX.Y.Z
 - Select the tag you just created
 - Add release notes describing the changes
 - Publish the release
-
-### Prerequisites for Release
-
-- Write access to the GitHub repository
-- npm account with publish access to the `@project-kessel/kessel-sdk` package
-- Ensure CI/CD tests are passing
-- Review and update CHANGELOG or release notes as needed
 
 ## License
 
