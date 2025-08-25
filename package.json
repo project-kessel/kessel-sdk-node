@@ -1,6 +1,6 @@
 {
   "name": "@project-kessel/kessel-sdk",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "This is the official Node.js SDK for [Project Kessel](https://github.com/project-kessel), a system for unifying APIs and experiences with fine-grained authorization, common inventory, and CloudEvents.",
   "type": "module",
   "exports": {
