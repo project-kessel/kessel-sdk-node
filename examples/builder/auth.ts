@@ -2,7 +2,10 @@ import { ResourceReference } from "@project-kessel/kessel-sdk/kessel/inventory/v
 import { SubjectReference } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/subject_reference";
 import { CheckRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/check_request";
 import { ClientBuilder } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2";
-import { fetchOIDCDiscovery } from "@project-kessel/kessel-sdk/kessel/auth";
+import {
+  fetchOIDCDiscovery,
+  OAuth2ClientCredentials,
+} from "@project-kessel/kessel-sdk/kessel/auth";
 import "dotenv/config";
 
 const subjectReference: SubjectReference = {
@@ -35,15 +38,15 @@ const check_request: CheckRequest = {
       process.env.AUTH_DISCOVERY_ISSUER_URL,
     );
 
-    const client = ClientBuilder.builder()
-      .withTarget(process.env.KESSEL_ENDPOINT)
-      .withSecureCredentials() // Auth only works with secure credentials
-      .withAuth({
-        clientId: process.env.AUTH_CLIENT_ID,
-        clientSecret: process.env.AUTH_CLIENT_SECRET,
-        tokenEndpoint: discovery.tokenEndpoint,
-      })
-      .build();
+    const oAuth2ClientCredentials = new OAuth2ClientCredentials({
+      clientId: process.env.AUTH_CLIENT_ID!,
+      clientSecret: process.env.AUTH_CLIENT_SECRET!,
+      tokenEndpoint: discovery.tokenEndpoint,
+    });
+
+    const client = new ClientBuilder(process.env.KESSEL_ENDPOINT)
+      .oauth2ClientAuthenticated(oAuth2ClientCredentials)
+      .buildAsync(); // Or .build if using the callback client
 
     const response = await client.check(check_request);
     console.log("Check response received successfully:");

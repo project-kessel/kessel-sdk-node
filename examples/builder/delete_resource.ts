@@ -2,12 +2,9 @@ import { DeleteResourceRequest } from "@project-kessel/kessel-sdk/kessel/invento
 import { ClientBuilder } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2";
 import "dotenv/config";
 
-const client = ClientBuilder.builder()
-  .withTarget(process.env.KESSEL_ENDPOINT)
-  .withInsecureCredentials()
-  // .withKeepAlive(10000, 5000, true)
-  // .withCredentials(ChannelCredentials.createSsl())
-  .build();
+const client = new ClientBuilder(process.env.KESSEL_ENDPOINT)
+  .insecure()
+  .buildAsync(); // Or .build if using the callback client
 
 const deleteResourceRequest: DeleteResourceRequest = {
   reference: {

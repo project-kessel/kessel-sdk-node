@@ -1,5 +1,4 @@
 import type * as oauth from "oauth4webapi";
-import { ClientConfigAuth } from "../inventory";
 
 const EXPIRATION_WINDOW_MILLI = 300000; // 5 minutes in milliseconds
 const DEFAULT_EXPIRE_IN_SECONDS = 3600; // 1 hour in seconds
@@ -7,6 +6,27 @@ const DEFAULT_EXPIRE_IN_SECONDS = 3600; // 1 hour in seconds
 interface RefreshTokenResponse {
   accessToken: string;
   expiresAt: Date;
+}
+
+export interface ClientConfigAuth {
+  /**
+   * The OAuth client identifier.
+   */
+  clientId: string;
+
+  /**
+   * The OAuth client secret.
+   */
+  clientSecret: string;
+
+  /**
+   * The OAuth issuer URL for discovery.
+   * Should be the base URL of the OAuth provider.
+   *
+   * @example "https://auth.example.com"
+   * @example "https://sso.server/auth/realms/my-realm"
+   */
+  tokenEndpoint: string;
 }
 
 export interface OIDCDiscoveryMetadata {

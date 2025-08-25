@@ -1,5 +1,5 @@
 import { KesselInventoryServiceClient } from "./inventory_service";
-import { ClientBuilderFactory } from "../../grpc";
+import { clientBuilderForStub } from "..";
 
 /**
  * Client builder for the Kessel Inventory Service (v1beta2).
@@ -25,4 +25,4 @@ import { ClientBuilderFactory } from "../../grpc";
  * });
  * ```
  */
-export const ClientBuilder = ClientBuilderFactory(KesselInventoryServiceClient);
+export const ClientBuilder = clientBuilderForStub(KesselInventoryServiceClient);
