@@ -79,11 +79,6 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/). Version n
 - Ensure CI/CD tests are passing
 - Review and update CHANGELOG or release notes as needed
 - Node 20 or higher
-- Required tools installed:
-  ```bash
-  pip install build twine
-  pip install "kessel-sdk[dev]"
-  ```
 - [buf](https://github.com/bufbuild/buf) for protobuf/gRPC code generation:
 
   ```bash
