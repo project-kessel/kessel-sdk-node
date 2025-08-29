@@ -6,7 +6,7 @@ import { CheckRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta
 import { ChannelCredentials } from "@grpc/grpc-js";
 
 const stub = new KesselInventoryServiceClient(
-  process.env.KESSEL_ENDPOINT,
+  process.env.KESSEL_ENDPOINT!,
   ChannelCredentials.createInsecure(),
   {
     // Channel options

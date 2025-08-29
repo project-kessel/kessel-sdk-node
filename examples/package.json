@@ -25,5 +25,9 @@
     "dotenv": "^17.1.0",
     "tsx": "^4.20.2"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "typescript": "^5.8.3"
+  }
 }
