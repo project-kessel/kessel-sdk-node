@@ -28,6 +28,9 @@ export default [
 
     languageOptions: {
       parser: tsParser,
+      globals: {
+        ...globals.node,
+      },
     },
 
     rules: {

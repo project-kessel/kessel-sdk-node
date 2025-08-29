@@ -35,7 +35,7 @@ const check_request: CheckRequest = {
 (async () => {
   try {
     const discovery = await fetchOIDCDiscovery(
-      process.env.AUTH_DISCOVERY_ISSUER_URL,
+      process.env.AUTH_DISCOVERY_ISSUER_URL!,
     );
 
     const oAuth2ClientCredentials = new OAuth2ClientCredentials({
@@ -44,7 +44,7 @@ const check_request: CheckRequest = {
       tokenEndpoint: discovery.tokenEndpoint,
     });
 
-    const client = new ClientBuilder(process.env.KESSEL_ENDPOINT)
+    const client = new ClientBuilder(process.env.KESSEL_ENDPOINT!)
       .oauth2ClientAuthenticated(oAuth2ClientCredentials)
       .buildAsync(); // Or .build if using the callback client
 

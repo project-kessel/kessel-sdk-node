@@ -40,16 +40,6 @@ interface PromisifiedClientMethod<
   ): Promise<TResponse>;
 }
 
-type PromisifyClientMethod<T> =
-  T extends CallbackClientMethod<
-    infer TRequest,
-    infer TResponse,
-    infer TMetadata,
-    infer TOptions
-  >
-    ? PromisifiedClientMethod<TRequest, TResponse, TMetadata, TOptions>
-    : T;
-
 /**
  * Type that represents a promisified version of a gRPC client.
  * Transforms callback-based methods into promise-based methods while preserving other properties.
@@ -57,8 +47,13 @@ type PromisifyClientMethod<T> =
  * @template T - The original client type, defaults to Client
  */
 export type PromisifiedClient<T = Client> = {
-  [K in keyof T]: T[K] extends (...args: unknown[]) => unknown
-    ? PromisifyClientMethod<T[K]>
+  [K in keyof T]: T[K] extends CallbackClientMethod<
+    infer TRequest,
+    infer TResponse,
+    infer TMetadata,
+    infer TOptions
+  >
+    ? PromisifiedClientMethod<TRequest, TResponse, TMetadata, TOptions>
     : T[K];
 };
 

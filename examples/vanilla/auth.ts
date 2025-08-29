@@ -35,7 +35,7 @@ const check_request: CheckRequest = {
   subject: subjectReference,
 };
 
-fetchOIDCDiscovery(process.env.AUTH_DISCOVERY_ISSUER_URL)
+fetchOIDCDiscovery(process.env.AUTH_DISCOVERY_ISSUER_URL!)
   .then((discovery: OIDCDiscoveryMetadata) => {
     return new OAuth2ClientCredentials({
       clientId: process.env.AUTH_CLIENT_ID!,
@@ -45,7 +45,7 @@ fetchOIDCDiscovery(process.env.AUTH_DISCOVERY_ISSUER_URL)
   })
   .then((auth: OAuth2ClientCredentials) => {
     const stub = new KesselInventoryServiceClient(
-      process.env.KESSEL_ENDPOINT,
+      process.env.KESSEL_ENDPOINT!,
       credentials.combineChannelCredentials(
         ChannelCredentials.createSsl(), // Auth only works with secure credentials
         oauth2CallCredentials(auth),

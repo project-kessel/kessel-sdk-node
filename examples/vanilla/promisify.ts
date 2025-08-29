@@ -9,7 +9,7 @@ import { promisify } from "util";
 import "dotenv/config";
 
 const stub = new KesselInventoryServiceClient(
-  process.env.KESSEL_ENDPOINT,
+  process.env.KESSEL_ENDPOINT!,
   ChannelCredentials.createInsecure(),
   {
     // Channel options
