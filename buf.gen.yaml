@@ -1,7 +1,6 @@
 version: v2
 inputs:
   - module: buf.build/project-kessel/inventory-api
-  - module: buf.build/bufbuild/protovalidate
 plugins:
   - remote: buf.build/community/stephenh-ts-proto:v1.178.0
     out: src
