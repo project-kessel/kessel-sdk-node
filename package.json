@@ -4,10 +4,40 @@
   "description": "This is the official Node.js SDK for [Project Kessel](https://github.com/project-kessel), a system for unifying APIs and experiences with fine-grained authorization, common inventory, and CloudEvents.",
   "type": "module",
   "exports": {
-    "./*": {
-      "require": "./dist/cjs/*",
-      "import": "./dist/esm/*",
-      "types": "./dist/types/*"
+    "./kessel/inventory/v1": {
+      "require": "./dist/cjs/kessel/inventory/v1/index.js",
+      "import": "./dist/esm/kessel/inventory/v1/index.js",
+      "types": "./dist/types/kessel/inventory/v1/index.d.ts"
+    },
+    "./kessel/inventory/v1/*": {
+      "require": "./dist/cjs/kessel/inventory/v1/*.js",
+      "import": "./dist/esm/kessel/inventory/v1/*.js",
+      "types": "./dist/types/kessel/inventory/v1/*.d.ts"
+    },
+    "./kessel/inventory/v1beta2": {
+      "require": "./dist/cjs/kessel/inventory/v1beta2/index.js",
+      "import": "./dist/esm/kessel/inventory/v1beta2/index.js",
+      "types": "./dist/types/kessel/inventory/v1beta2/index.d.ts"
+    },
+    "./kessel/inventory/v1beta2/*": {
+      "require": "./dist/cjs/kessel/inventory/v1beta2/*.js",
+      "import": "./dist/esm/kessel/inventory/v1beta2/*.js",
+      "types": "./dist/types/kessel/inventory/v1beta2/*.d.ts"
+    },
+    "./kessel/auth": {
+      "require": "./dist/cjs/kessel/auth/index.js",
+      "import": "./dist/esm/kessel/auth/index.js",
+      "types": "./dist/types/kessel/auth/index.d.ts"
+    },
+    "./kessel/auth/*": {
+      "require": "./dist/cjs/kessel/auth/*.js",
+      "import": "./dist/esm/kessel/auth/*.js",
+      "types": "./dist/types/kessel/auth/*.d.ts"
+    },
+    "./promisify": {
+      "require": "./dist/cjs/promisify.js",
+      "import": "./dist/esm/promisify.js",
+      "types": "./dist/types/promisify.d.ts"
     }
   },
   "typesVersions": {
@@ -20,8 +50,8 @@
   },
   "scripts": {
     "build": "run-p build:cjs build:esm build:types",
-    "build:cjs": "tsc --module commonjs --outDir dist/cjs/",
-    "build:esm": "tsc --module es2022 --outDir dist/esm/",
+    "build:cjs": "tsc --module commonjs --outDir dist/cjs/ && echo '{\"type\":\"commonjs\"}' > dist/cjs/package.json",
+    "build:esm": "tsc --module es2022 --outDir dist/esm/ && echo '{\"type\":\"module\"}' > dist/cjs/package.json",
     "build:types": "tsc --declaration true --emitDeclarationOnly true --declarationDir dist/types",
     "prettier": "npm run prettier:base -- --write",
     "prettier:check": "npm run prettier:base -- --check",
