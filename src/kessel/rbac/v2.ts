@@ -1,4 +1,4 @@
-import { OAuth2ClientCredentials } from "../auth";
+import { AuthRequest } from "../auth";
 
 const WORKSPACE_ENDPOINT = "/api/rbac/v2/workspaces/";
 
@@ -8,21 +8,6 @@ interface Workspace {
   type: string;
   description: string;
 }
-
-interface AuthRequest {
-  configureRequest: (request: Request) => Promise<void>;
-}
-
-export const oauth2AuthRequest = (
-  credentials: OAuth2ClientCredentials,
-): AuthRequest => {
-  return {
-    configureRequest: async (request) => {
-      const token = await credentials.getToken();
-      request.headers.set("authorization", `Bearer ${token.accessToken}`);
-    },
-  };
-};
 
 const fetchWorkspace = async (
   rbacBaseEndpoint: string,
