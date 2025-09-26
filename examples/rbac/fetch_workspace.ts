@@ -1,11 +1,11 @@
 import {
   fetchOIDCDiscovery,
   OAuth2ClientCredentials,
+  oauth2AuthRequest,
 } from "../../src/kessel/auth";
 import {
   fetchDefaultWorkspace,
   fetchRootWorkspace,
-  oauth2AuthRequest,
 } from "../../src/kessel/rbac/v2";
 import "dotenv/config";
 
