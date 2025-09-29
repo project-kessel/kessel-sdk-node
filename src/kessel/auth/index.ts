@@ -194,3 +194,18 @@ export class OAuth2ClientCredentials {
     });
   }
 }
+
+export interface AuthRequest {
+  configureRequest: (request: Request) => Promise<void>;
+}
+
+export const oauth2AuthRequest = (
+  credentials: OAuth2ClientCredentials,
+): AuthRequest => {
+  return {
+    configureRequest: async (request) => {
+      const token = await credentials.getToken();
+      request.headers.set("authorization", `Bearer ${token.accessToken}`);
+    },
+  };
+};

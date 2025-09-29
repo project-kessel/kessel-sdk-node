@@ -1,4 +1,8 @@
-import { OAuth2ClientCredentials, fetchOIDCDiscovery } from "../index";
+import {
+  OAuth2ClientCredentials,
+  fetchOIDCDiscovery,
+  oauth2AuthRequest,
+} from "../index";
 
 // Mock oauth4webapi module
 const mockOAuth = {
@@ -497,5 +501,185 @@ describe("OAuth2ClientCredentials", () => {
         "test-secret-with-special-chars!@#$%^&*()",
       );
     });
+  });
+});
+
+describe("oauth2AuthRequest", () => {
+  const mockAuth = {
+    clientId: "test-client-id",
+    clientSecret: "test-client-secret",
+    tokenEndpoint: "https://example.com/token",
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.resetModules();
+  });
+
+  it("creates an AuthRequest that configures request with Bearer token", async () => {
+    const mockTokenResponse = {};
+    const mockTokenResult = {
+      access_token: "test-access-token",
+      expires_in: 3600,
+    };
+
+    mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+    mockOAuth.clientCredentialsGrantRequest.mockResolvedValue(
+      mockTokenResponse,
+    );
+    mockOAuth.processClientCredentialsResponse.mockResolvedValue(
+      mockTokenResult,
+    );
+
+    const credentials = new OAuth2ClientCredentials(mockAuth);
+    const authRequest = oauth2AuthRequest(credentials);
+
+    const mockRequest = new Request("https://api.example.com/test");
+    await authRequest.configureRequest(mockRequest);
+
+    expect(mockRequest.headers.get("authorization")).toBe(
+      "Bearer test-access-token",
+    );
+  });
+
+  it("uses cached token when available", async () => {
+    const credentials = new OAuth2ClientCredentials(mockAuth);
+
+    // Set up a valid cached token
+    const futureTime = new Date(Date.now() + 600000);
+    (credentials as any).tokenCache = {
+      accessToken: "cached-token",
+      expiresAt: futureTime,
+    };
+
+    const authRequest = oauth2AuthRequest(credentials);
+    const mockRequest = new Request("https://api.example.com/test");
+    await authRequest.configureRequest(mockRequest);
+
+    expect(mockRequest.headers.get("authorization")).toBe(
+      "Bearer cached-token",
+    );
+
+    // Should not have called OAuth methods since using cache
+    expect(mockOAuth.clientCredentialsGrantRequest).not.toHaveBeenCalled();
+  });
+
+  it("fetches new token when cache is expired", async () => {
+    const mockTokenResponse = {};
+    const mockTokenResult = {
+      access_token: "fresh-token",
+      expires_in: 3600,
+    };
+
+    mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+    mockOAuth.clientCredentialsGrantRequest.mockResolvedValue(
+      mockTokenResponse,
+    );
+    mockOAuth.processClientCredentialsResponse.mockResolvedValue(
+      mockTokenResult,
+    );
+
+    const credentials = new OAuth2ClientCredentials(mockAuth);
+
+    // Set up an expired cache
+    const pastTime = new Date(Date.now() - 1000);
+    (credentials as any).tokenCache = {
+      accessToken: "expired-token",
+      expiresAt: pastTime,
+    };
+
+    const authRequest = oauth2AuthRequest(credentials);
+    const mockRequest = new Request("https://api.example.com/test");
+    await authRequest.configureRequest(mockRequest);
+
+    expect(mockRequest.headers.get("authorization")).toBe("Bearer fresh-token");
+
+    // Should have called OAuth methods to get new token
+    expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalled();
+    expect(mockOAuth.processClientCredentialsResponse).toHaveBeenCalled();
+  });
+
+  it("configures multiple requests with the same token", async () => {
+    const credentials = new OAuth2ClientCredentials(mockAuth);
+
+    // Set up a valid cached token
+    const futureTime = new Date(Date.now() + 600000);
+    (credentials as any).tokenCache = {
+      accessToken: "shared-token",
+      expiresAt: futureTime,
+    };
+
+    const authRequest = oauth2AuthRequest(credentials);
+
+    const request1 = new Request("https://api.example.com/test1");
+    const request2 = new Request("https://api.example.com/test2");
+
+    await authRequest.configureRequest(request1);
+    await authRequest.configureRequest(request2);
+
+    expect(request1.headers.get("authorization")).toBe("Bearer shared-token");
+    expect(request2.headers.get("authorization")).toBe("Bearer shared-token");
+  });
+
+  it("handles token retrieval errors gracefully", async () => {
+    const tokenError = new Error("Failed to get token");
+
+    mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+    mockOAuth.clientCredentialsGrantRequest.mockRejectedValue(tokenError);
+
+    const credentials = new OAuth2ClientCredentials(mockAuth);
+    const authRequest = oauth2AuthRequest(credentials);
+    const mockRequest = new Request("https://api.example.com/test");
+
+    await expect(authRequest.configureRequest(mockRequest)).rejects.toThrow(
+      "Failed to get token",
+    );
+  });
+
+  it("overwrites existing authorization header", async () => {
+    const credentials = new OAuth2ClientCredentials(mockAuth);
+
+    // Set up a valid cached token
+    const futureTime = new Date(Date.now() + 600000);
+    (credentials as any).tokenCache = {
+      accessToken: "new-token",
+      expiresAt: futureTime,
+    };
+
+    const authRequest = oauth2AuthRequest(credentials);
+    const mockRequest = new Request("https://api.example.com/test", {
+      headers: {
+        authorization: "Bearer old-token",
+      },
+    });
+
+    await authRequest.configureRequest(mockRequest);
+
+    expect(mockRequest.headers.get("authorization")).toBe("Bearer new-token");
+  });
+
+  it("preserves other headers while setting authorization", async () => {
+    const credentials = new OAuth2ClientCredentials(mockAuth);
+
+    // Set up a valid cached token
+    const futureTime = new Date(Date.now() + 600000);
+    (credentials as any).tokenCache = {
+      accessToken: "auth-token",
+      expiresAt: futureTime,
+    };
+
+    const authRequest = oauth2AuthRequest(credentials);
+    const mockRequest = new Request("https://api.example.com/test", {
+      headers: {
+        "content-type": "application/json",
+        "user-agent": "test-agent",
+      },
+    });
+
+    await authRequest.configureRequest(mockRequest);
+
+    expect(mockRequest.headers.get("authorization")).toBe("Bearer auth-token");
+    expect(mockRequest.headers.get("content-type")).toBe("application/json");
+    expect(mockRequest.headers.get("user-agent")).toBe("test-agent");
   });
 });
