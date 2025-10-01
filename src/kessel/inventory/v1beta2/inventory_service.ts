@@ -4,7 +4,6 @@
 //   protoc               unknown
 // source: kessel/inventory/v1beta2/inventory_service.proto
 
- 
 import {
   type CallOptions,
   ChannelCredentials,
