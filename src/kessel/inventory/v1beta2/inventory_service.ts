@@ -4,7 +4,7 @@
 //   protoc               unknown
 // source: kessel/inventory/v1beta2/inventory_service.proto
 
-/* eslint-disable */
+ 
 import {
   type CallOptions,
   ChannelCredentials,

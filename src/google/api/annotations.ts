@@ -4,7 +4,7 @@
 //   protoc               unknown
 // source: google/api/annotations.proto
 
-/* eslint-disable */
+ 
 import _m0 from "protobufjs/minimal";
 import { HttpRule } from "./http";
 

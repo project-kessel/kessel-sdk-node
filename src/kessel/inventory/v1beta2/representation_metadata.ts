@@ -14,6 +14,7 @@ export interface RepresentationMetadata {
   apiHref?: string | undefined;
   consoleHref?: string | undefined;
   reporterVersion?: string | undefined;
+  transactionId?: string | undefined;
 }
 
 function createBaseRepresentationMetadata(): RepresentationMetadata {
@@ -22,6 +23,7 @@ function createBaseRepresentationMetadata(): RepresentationMetadata {
     apiHref: "",
     consoleHref: undefined,
     reporterVersion: undefined,
+    transactionId: undefined,
   };
 }
 
@@ -44,6 +46,9 @@ export const RepresentationMetadata = {
     }
     if (message.reporterVersion !== undefined) {
       writer.uint32(34).string(message.reporterVersion);
+    }
+    if (message.transactionId !== undefined) {
+      writer.uint32(42).string(message.transactionId);
     }
     return writer;
   },
@@ -87,6 +92,13 @@ export const RepresentationMetadata = {
 
           message.reporterVersion = reader.string();
           continue;
+        case 5:
+          if (tag !== 42) {
+            break;
+          }
+
+          message.transactionId = reader.string();
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -108,6 +120,9 @@ export const RepresentationMetadata = {
       reporterVersion: isSet(object.reporterVersion)
         ? globalThis.String(object.reporterVersion)
         : undefined,
+      transactionId: isSet(object.transactionId)
+        ? globalThis.String(object.transactionId)
+        : undefined,
     };
   },
 
@@ -128,6 +143,9 @@ export const RepresentationMetadata = {
     if (message.reporterVersion !== undefined) {
       obj.reporterVersion = message.reporterVersion;
     }
+    if (message.transactionId !== undefined) {
+      obj.transactionId = message.transactionId;
+    }
     return obj;
   },
 
@@ -144,6 +162,7 @@ export const RepresentationMetadata = {
     message.apiHref = object.apiHref ?? "";
     message.consoleHref = object.consoleHref ?? undefined;
     message.reporterVersion = object.reporterVersion ?? undefined;
+    message.transactionId = object.transactionId ?? undefined;
     return message;
   },
 };
