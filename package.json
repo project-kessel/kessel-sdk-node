@@ -34,6 +34,11 @@
       "import": "./dist/esm/kessel/auth/*.js",
       "types": "./dist/types/kessel/auth/*.d.ts"
     },
+    "./kessel/rbac/v2": {
+      "require": "./dist/cjs/kessel/rbac/v2.js",
+      "import": "./dist/esm/kessel/rbac/v2.js",
+      "types": "./dist/types/kessel/rbac/v2.d.ts"
+    },
     "./promisify": {
       "require": "./dist/cjs/promisify.js",
       "import": "./dist/esm/promisify.js",
