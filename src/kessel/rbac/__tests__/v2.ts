@@ -1,4 +1,14 @@
-import { fetchDefaultWorkspace, fetchRootWorkspace } from "../v2";
+import {
+  fetchDefaultWorkspace,
+  fetchRootWorkspace,
+  workspaceType,
+  roleType,
+  principalResource,
+  roleResource,
+  workspaceResource,
+  principalSubject,
+  subject,
+} from "../v2";
 import { AuthRequest } from "../../auth";
 
 // Mock global fetch
@@ -355,6 +365,124 @@ describe("RBAC workspace fetching", () => {
 
       expect(mockAuth.configureRequest).toHaveBeenCalled();
       expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("RBAC utility functions", () => {
+  describe("workspaceType", () => {
+    it("returns correct RepresentationType for workspace", () => {
+      const result = workspaceType();
+
+      expect(result).toEqual({
+        resourceType: "workspace",
+        reporterType: "rbac",
+      });
+    });
+  });
+
+  describe("roleType", () => {
+    it("returns correct RepresentationType for role", () => {
+      const result = roleType();
+
+      expect(result).toEqual({
+        resourceType: "role",
+        reporterType: "rbac",
+      });
+    });
+  });
+
+  describe("principalResource", () => {
+    it("creates ResourceReference for principal with id and domain", () => {
+      const result = principalResource("user123", "redhat");
+
+      expect(result).toEqual({
+        resourceType: "principal",
+        resourceId: "redhat/user123",
+        reporter: {
+          type: "rbac",
+        },
+      });
+    });
+  });
+
+  describe("roleResource", () => {
+    it("creates ResourceReference for role", () => {
+      const result = roleResource("admin");
+
+      expect(result).toEqual({
+        resourceType: "role",
+        resourceId: "admin",
+        reporter: {
+          type: "rbac",
+        },
+      });
+    });
+  });
+
+  describe("workspaceResource", () => {
+    it("creates ResourceReference for workspace", () => {
+      const result = workspaceResource("project-abc");
+
+      expect(result).toEqual({
+        resourceType: "workspace",
+        resourceId: "project-abc",
+        reporter: {
+          type: "rbac",
+        },
+      });
+    });
+  });
+
+  describe("principalSubject", () => {
+    it("creates SubjectReference for principal", () => {
+      const result = principalSubject("john", "example");
+
+      expect(result).toEqual({
+        resource: {
+          resourceType: "principal",
+          resourceId: "example/john",
+          reporter: {
+            type: "rbac",
+          },
+        },
+      });
+    });
+  });
+
+  describe("subject", () => {
+    it("creates SubjectReference from ResourceReference without relation", () => {
+      const resource = principalResource("user789", "redhat");
+      const result = subject(resource);
+
+      expect(result).toEqual({
+        resource: resource,
+        relation: undefined,
+      });
+    });
+
+    it("creates SubjectReference from ResourceReference with relation", () => {
+      const resource = principalResource("user101", "domain");
+      const result = subject(resource, "member");
+
+      expect(result).toEqual({
+        resource: resource,
+        relation: "member",
+      });
+    });
+
+    it("handles manually constructed ResourceReference", () => {
+      const customResource = {
+        resourceType: "group",
+        resourceId: "our-team",
+        reporter: { type: "rbac" },
+      };
+
+      const result = subject(customResource, "owner");
+
+      expect(result.resource?.resourceType).toBe("group");
+      expect(result.resource?.resourceId).toBe("our-team");
+      expect(result.relation).toBe("owner");
     });
   });
 });
