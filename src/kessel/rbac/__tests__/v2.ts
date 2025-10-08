@@ -498,7 +498,9 @@ describe("listWorkspaces", () => {
   });
 
   const createMockInventoryClient = (
-    responseGenerator?: (request: StreamedListObjectsRequest) => AsyncGenerator<StreamedListObjectsResponse>,
+    responseGenerator?: (
+      request: StreamedListObjectsRequest,
+    ) => AsyncGenerator<StreamedListObjectsResponse>,
   ) => {
     const mock = {
       streamedListObjects: jest.fn(),
@@ -511,7 +513,7 @@ describe("listWorkspaces", () => {
         if (responseGenerator) {
           return responseGenerator(request);
         }
-        return (async function* () { })();
+        return (async function* () {})();
       },
     );
 
@@ -732,8 +734,7 @@ describe("listWorkspaces", () => {
     });
 
     it("handles empty workspace list", async () => {
-      const client = createMockInventoryClient(async function* () {
-      });
+      const client = createMockInventoryClient(async function* () {});
 
       const workspaces: StreamedListObjectsResponse[] = [];
       for await (const response of listWorkspaces(

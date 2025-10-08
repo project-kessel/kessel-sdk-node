@@ -6,10 +6,9 @@ import { ReporterReference } from "../inventory/v1beta2/reporter_reference";
 import { StreamedListObjectsRequest } from "../inventory/v1beta2/streamed_list_objects_request";
 import { StreamedListObjectsResponse } from "../inventory/v1beta2/streamed_list_objects_response";
 
-
 const WORKSPACE_ENDPOINT = "/api/rbac/v2/workspaces/";
 
-interface Workspace {
+export interface Workspace {
   id: string;
   name: string;
   type: string;
@@ -74,7 +73,6 @@ export const fetchRootWorkspace = async (
 ) => {
   return fetchWorkspace(rbacBaseEndpoint, orgId, "root", auth);
 };
-
 
 export const workspaceType = (): RepresentationType => {
   return {
@@ -152,7 +150,9 @@ const DEFAULT_PAGE_LIMIT = 1000;
 
 export async function* listWorkspaces(
   inventory: {
-    streamedListObjects: (request: StreamedListObjectsRequest) => AsyncIterable<StreamedListObjectsResponse>;
+    streamedListObjects: (
+      request: StreamedListObjectsRequest,
+    ) => AsyncIterable<StreamedListObjectsResponse>;
   },
   subject: SubjectReference,
   relation: string,
@@ -176,7 +176,7 @@ export async function* listWorkspaces(
       hasResponses = true;
       yield response;
 
-      if (response.pagination !== undefined) {
+      if (response.pagination?.continuationToken !== undefined) {
         continuationToken = response.pagination.continuationToken;
       }
     }
