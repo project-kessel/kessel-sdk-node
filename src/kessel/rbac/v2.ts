@@ -3,6 +3,9 @@ import { ResourceReference } from "../inventory/v1beta2/resource_reference";
 import { SubjectReference } from "../inventory/v1beta2/subject_reference";
 import { RepresentationType } from "../inventory/v1beta2/representation_type";
 import { ReporterReference } from "../inventory/v1beta2/reporter_reference";
+import { StreamedListObjectsRequest } from "../inventory/v1beta2/streamed_list_objects_request";
+import { StreamedListObjectsResponse } from "../inventory/v1beta2/streamed_list_objects_response";
+
 
 const WORKSPACE_ENDPOINT = "/api/rbac/v2/workspaces/";
 
@@ -144,3 +147,43 @@ export const subject = (
     relation,
   };
 };
+
+const DEFAULT_PAGE_LIMIT = 1000;
+
+export async function* listWorkspaces(
+  inventory: {
+    streamedListObjects: (request: StreamedListObjectsRequest) => AsyncIterable<StreamedListObjectsResponse>;
+  },
+  subject: SubjectReference,
+  relation: string,
+  continuationToken?: string,
+): AsyncGenerator<StreamedListObjectsResponse> {
+  while (true) {
+    const request: StreamedListObjectsRequest = {
+      objectType: workspaceType(),
+      relation,
+      subject,
+      pagination: {
+        limit: DEFAULT_PAGE_LIMIT,
+        continuationToken: continuationToken,
+      },
+    };
+
+    const stream = inventory.streamedListObjects(request);
+
+    let hasResponses = false;
+    for await (const response of stream) {
+      hasResponses = true;
+      yield response;
+
+      if (response.pagination?.continuationToken) {
+        continuationToken = response.pagination.continuationToken;
+      }
+    }
+
+    // If we got no responses or the token is empty, we're done
+    if (!hasResponses || !continuationToken || continuationToken === "") {
+      break;
+    }
+  }
+}
