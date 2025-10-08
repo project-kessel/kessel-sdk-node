@@ -176,7 +176,7 @@ export async function* listWorkspaces(
       hasResponses = true;
       yield response;
 
-      if (response.pagination?.continuationToken) {
+      if (response.pagination !== undefined) {
         continuationToken = response.pagination.continuationToken;
       }
     }
