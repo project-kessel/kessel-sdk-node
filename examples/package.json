@@ -16,6 +16,7 @@
     "builder:streamed_list_objects": "tsx builder/streamed_list_objects.ts",
     "builder:auth": "tsx builder/auth.ts",
     "rbac:fetch_workspace": "tsx rbac/fetch_workspace.ts",
+    "rbac:list_workspaces": "tsx rbac/list_workspaces.ts",
     "postinstall": "tsx setup.ts"
   },
   "author": "Josejulio Martínez",

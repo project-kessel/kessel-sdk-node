@@ -1,5 +1,18 @@
-import { fetchDefaultWorkspace, fetchRootWorkspace } from "../v2";
+import {
+  fetchDefaultWorkspace,
+  fetchRootWorkspace,
+  workspaceType,
+  roleType,
+  principalResource,
+  roleResource,
+  workspaceResource,
+  principalSubject,
+  subject,
+  listWorkspaces,
+} from "../v2";
 import { AuthRequest } from "../../auth";
+import { StreamedListObjectsRequest } from "../../inventory/v1beta2/streamed_list_objects_request";
+import { StreamedListObjectsResponse } from "../../inventory/v1beta2/streamed_list_objects_response";
 
 // Mock global fetch
 const mockFetch = jest.fn();
@@ -355,6 +368,409 @@ describe("RBAC workspace fetching", () => {
 
       expect(mockAuth.configureRequest).toHaveBeenCalled();
       expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe("RBAC utility functions", () => {
+  describe("workspaceType", () => {
+    it("returns correct RepresentationType for workspace", () => {
+      const result = workspaceType();
+
+      expect(result).toEqual({
+        resourceType: "workspace",
+        reporterType: "rbac",
+      });
+    });
+  });
+
+  describe("roleType", () => {
+    it("returns correct RepresentationType for role", () => {
+      const result = roleType();
+
+      expect(result).toEqual({
+        resourceType: "role",
+        reporterType: "rbac",
+      });
+    });
+  });
+
+  describe("principalResource", () => {
+    it("creates ResourceReference for principal with id and domain", () => {
+      const result = principalResource("user123", "redhat");
+
+      expect(result).toEqual({
+        resourceType: "principal",
+        resourceId: "redhat/user123",
+        reporter: {
+          type: "rbac",
+        },
+      });
+    });
+  });
+
+  describe("roleResource", () => {
+    it("creates ResourceReference for role", () => {
+      const result = roleResource("admin");
+
+      expect(result).toEqual({
+        resourceType: "role",
+        resourceId: "admin",
+        reporter: {
+          type: "rbac",
+        },
+      });
+    });
+  });
+
+  describe("workspaceResource", () => {
+    it("creates ResourceReference for workspace", () => {
+      const result = workspaceResource("project-abc");
+
+      expect(result).toEqual({
+        resourceType: "workspace",
+        resourceId: "project-abc",
+        reporter: {
+          type: "rbac",
+        },
+      });
+    });
+  });
+
+  describe("principalSubject", () => {
+    it("creates SubjectReference for principal", () => {
+      const result = principalSubject("john", "example");
+
+      expect(result).toEqual({
+        resource: {
+          resourceType: "principal",
+          resourceId: "example/john",
+          reporter: {
+            type: "rbac",
+          },
+        },
+      });
+    });
+  });
+
+  describe("subject", () => {
+    it("creates SubjectReference from ResourceReference without relation", () => {
+      const resource = principalResource("user789", "redhat");
+      const result = subject(resource);
+
+      expect(result).toEqual({
+        resource: resource,
+        relation: undefined,
+      });
+    });
+
+    it("creates SubjectReference from ResourceReference with relation", () => {
+      const resource = principalResource("user101", "domain");
+      const result = subject(resource, "member");
+
+      expect(result).toEqual({
+        resource: resource,
+        relation: "member",
+      });
+    });
+
+    it("handles manually constructed ResourceReference", () => {
+      const customResource = {
+        resourceType: "group",
+        resourceId: "our-team",
+        reporter: { type: "rbac" },
+      };
+
+      const result = subject(customResource, "owner");
+
+      expect(result.resource?.resourceType).toBe("group");
+      expect(result.resource?.resourceId).toBe("our-team");
+      expect(result.relation).toBe("owner");
+    });
+  });
+});
+
+describe("listWorkspaces", () => {
+  const testSubject = principalSubject("test-user", "test-domain");
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const createMockInventoryClient = (
+    responseGenerator?: (
+      request: StreamedListObjectsRequest,
+    ) => AsyncGenerator<StreamedListObjectsResponse>,
+  ) => {
+    const mock = {
+      streamedListObjects: jest.fn(),
+      requests: [] as StreamedListObjectsRequest[],
+    };
+
+    mock.streamedListObjects.mockImplementation(
+      (request: StreamedListObjectsRequest) => {
+        mock.requests.push(request);
+        if (responseGenerator) {
+          return responseGenerator(request);
+        }
+        return (async function* () {})();
+      },
+    );
+
+    return mock;
+  };
+
+  describe("request building", () => {
+    it("builds request with correct parameters", async () => {
+      const client = createMockInventoryClient(async function* () {
+        yield {
+          object: workspaceResource("workspace-1"),
+          pagination: { continuationToken: "" },
+        };
+      });
+
+      const results: StreamedListObjectsResponse[] = [];
+      for await (const response of listWorkspaces(
+        client,
+        testSubject,
+        "member",
+      )) {
+        results.push(response);
+      }
+
+      expect(client.streamedListObjects).toHaveBeenCalledTimes(1);
+      const capturedRequest = client.requests[0];
+
+      expect(capturedRequest.relation).toBe("member");
+      expect(capturedRequest.subject).toBe(testSubject);
+      expect(capturedRequest.pagination?.continuationToken).toBeUndefined();
+      expect(capturedRequest.pagination?.limit).toBe(1000);
+    });
+
+    it("uses initial continuation token", async () => {
+      const initialToken = "resume-from-here";
+      const client = createMockInventoryClient(async function* () {
+        yield {
+          object: workspaceResource("workspace-1"),
+          pagination: { continuationToken: "" },
+        };
+      });
+
+      const results: StreamedListObjectsResponse[] = [];
+      for await (const response of listWorkspaces(
+        client,
+        testSubject,
+        "member",
+        initialToken,
+      )) {
+        results.push(response);
+      }
+
+      expect(client.streamedListObjects).toHaveBeenCalledTimes(1);
+      const capturedRequest = client.requests[0];
+
+      // Verify the token was used in the first request
+      expect(capturedRequest.pagination?.continuationToken).toBe(initialToken);
+    });
+  });
+
+  describe("pagination", () => {
+    it("handles pagination across multiple pages", async () => {
+      let count = 0;
+      const client = createMockInventoryClient(async function* () {
+        count++;
+        if (count === 1) {
+          yield {
+            object: workspaceResource("workspace-1"),
+            pagination: { continuationToken: "next-page-token" },
+          };
+        } else if (count === 2) {
+          yield {
+            object: workspaceResource("workspace-2"),
+            pagination: { continuationToken: "" },
+          };
+        }
+      });
+
+      const results: StreamedListObjectsResponse[] = [];
+      for await (const response of listWorkspaces(
+        client,
+        testSubject,
+        "viewer",
+      )) {
+        results.push(response);
+      }
+
+      expect(results).toHaveLength(2);
+      expect(results[0].object?.resourceId).toBe("workspace-1");
+      expect(results[1].object?.resourceId).toBe("workspace-2");
+
+      expect(client.streamedListObjects).toHaveBeenCalledTimes(2);
+      const requests = client.requests;
+
+      expect(requests).toHaveLength(2);
+      // First request sent with no token
+      expect(requests[0].pagination?.continuationToken).toBeUndefined();
+      // Second request uses token from first response
+      expect(requests[1].pagination?.continuationToken).toBe("next-page-token");
+    });
+
+    it("stops when no token", async () => {
+      const client = createMockInventoryClient(async function* () {
+        yield {
+          object: workspaceResource("workspace-1"),
+          pagination: { continuationToken: "" },
+        };
+      });
+
+      const results: StreamedListObjectsResponse[] = [];
+      for await (const response of listWorkspaces(
+        client,
+        testSubject,
+        "admin",
+      )) {
+        results.push(response);
+      }
+
+      expect(client.streamedListObjects).toHaveBeenCalledTimes(1);
+    });
+
+    it("stops when stream is empty", async () => {
+      const client = createMockInventoryClient(async function* () {
+        // Empty - no yields
+      });
+
+      const results: StreamedListObjectsResponse[] = [];
+      for await (const response of listWorkspaces(
+        client,
+        testSubject,
+        "member",
+      )) {
+        results.push(response);
+      }
+
+      expect(results).toHaveLength(0);
+      expect(client.streamedListObjects).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("workspace data", () => {
+    it("returns actual workspace data", async () => {
+      const client = createMockInventoryClient(async function* () {
+        yield {
+          object: workspaceResource("workspace-1"),
+          pagination: { continuationToken: "aaa" },
+        };
+        yield {
+          object: workspaceResource("workspace-2"),
+          pagination: { continuationToken: "bbb" },
+        };
+        yield {
+          object: workspaceResource("workspace-3"),
+          pagination: { continuationToken: "" },
+        };
+      });
+
+      const workspaceIds: string[] = [];
+      for await (const response of listWorkspaces(
+        client,
+        testSubject,
+        "member",
+      )) {
+        expect(response.object).toBeDefined();
+        expect(response.object?.resourceType).toBe("workspace");
+        expect(response.object?.reporter?.type).toBe("rbac");
+        if (response.object?.resourceId) {
+          workspaceIds.push(response.object.resourceId);
+        }
+      }
+
+      expect(workspaceIds).toHaveLength(3);
+      expect(workspaceIds[0]).toBe("workspace-1");
+      expect(workspaceIds[1]).toBe("workspace-2");
+      expect(workspaceIds[2]).toBe("workspace-3");
+    });
+
+    it("returns workspaces across multiple pages", async () => {
+      let count = 0;
+      const client = createMockInventoryClient(async function* () {
+        count++;
+        if (count === 1) {
+          yield {
+            object: workspaceResource("prod-workspace-1"),
+            pagination: { continuationToken: "page2-token" },
+          };
+          yield {
+            object: workspaceResource("prod-workspace-2"),
+            pagination: { continuationToken: "page2-token" },
+          };
+        } else if (count === 2) {
+          yield {
+            object: workspaceResource("dev-workspace-1"),
+            pagination: { continuationToken: "" },
+          };
+        }
+      });
+
+      const allResponses: StreamedListObjectsResponse[] = [];
+      for await (const response of listWorkspaces(
+        client,
+        testSubject,
+        "viewer",
+      )) {
+        allResponses.push(response);
+      }
+
+      expect(allResponses).toHaveLength(3);
+      expect(allResponses[0].object?.resourceId).toBe("prod-workspace-1");
+      expect(allResponses[1].object?.resourceId).toBe("prod-workspace-2");
+      expect(allResponses[2].object?.resourceId).toBe("dev-workspace-1");
+
+      expect(client.streamedListObjects).toHaveBeenCalledTimes(2);
+      const requests = client.requests;
+
+      expect(requests[0].pagination?.continuationToken).toBeUndefined();
+      expect(requests[1].pagination?.continuationToken).toBe("page2-token");
+    });
+
+    it("handles empty workspace list", async () => {
+      const client = createMockInventoryClient(async function* () {});
+
+      const workspaces: StreamedListObjectsResponse[] = [];
+      for await (const response of listWorkspaces(
+        client,
+        testSubject,
+        "member",
+      )) {
+        workspaces.push(response);
+      }
+
+      expect(workspaces).toHaveLength(0);
+      expect(client.streamedListObjects).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("error handling", () => {
+    it("handles gRPC stream errors", async () => {
+      const client = createMockInventoryClient(async function* () {
+        yield {
+          object: workspaceResource("workspace-1"),
+          pagination: { continuationToken: "token" },
+        };
+        throw new Error("gRPC stream failed");
+      });
+
+      await expect(async () => {
+        for await (const _response of listWorkspaces(
+          client,
+          testSubject,
+          "member",
+        )) {
+          // intentionally empty to showcase error
+        }
+      }).rejects.toThrow("gRPC stream failed");
+
+      expect(client.streamedListObjects).toHaveBeenCalledTimes(1);
     });
   });
 });
