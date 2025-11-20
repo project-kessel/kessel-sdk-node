@@ -4,6 +4,7 @@
 //   protoc               unknown
 // source: kessel/inventory/v1beta2/inventory_service.proto
 
+/* eslint-disable */
 import {
   type CallOptions,
   ChannelCredentials,
@@ -18,6 +19,8 @@ import {
   type ServiceError,
   type UntypedServiceImplementation,
 } from "@grpc/grpc-js";
+import { CheckBulkRequest } from "./check_bulk_request";
+import { CheckBulkResponse } from "./check_bulk_response";
 import { CheckForUpdateRequest } from "./check_for_update_request";
 import { CheckForUpdateResponse } from "./check_for_update_response";
 import { CheckRequest } from "./check_request";
@@ -95,6 +98,39 @@ export const KesselInventoryServiceDefinition = {
               42, 58, 1, 42, 34, 37, 47, 97, 112, 105, 47, 105, 110, 118, 101,
               110, 116, 111, 114, 121, 47, 118, 49, 98, 101, 116, 97, 50, 47,
               99, 104, 101, 99, 107, 102, 111, 114, 117, 112, 100, 97, 116, 101,
+            ]),
+          ],
+        },
+      },
+    },
+    /**
+     * Performs bulk permission checks for multiple resource-subject-relation combinations.
+     *
+     * This API is more efficient than making individual Check calls when verifying permissions
+     * for multiple items. It answers questions like:
+     * "Which of these resources can subject *X* perform action *Y* on?"
+     *
+     * Common use cases include:
+     * - Filtering lists based on user permissions
+     * - Batch authorization checks before performing bulk operations
+     * - Dashboard rendering with multiple permission checks
+     * - Pre-authorization for UI components
+     *
+     * The response includes a result for each item in the request, maintaining the same order.
+     */
+    checkBulk: {
+      name: "CheckBulk",
+      requestType: CheckBulkRequest,
+      requestStream: false,
+      responseType: CheckBulkResponse,
+      responseStream: false,
+      options: {
+        _unknownFields: {
+          578365826: [
+            Buffer.from([
+              37, 58, 1, 42, 34, 32, 47, 97, 112, 105, 47, 105, 110, 118, 101,
+              110, 116, 111, 114, 121, 47, 118, 49, 98, 101, 116, 97, 50, 47,
+              99, 104, 101, 99, 107, 98, 117, 108, 107,
             ]),
           ],
         },
@@ -254,6 +290,32 @@ export const KesselInventoryServiceService = {
       CheckForUpdateResponse.decode(value),
   },
   /**
+   * Performs bulk permission checks for multiple resource-subject-relation combinations.
+   *
+   * This API is more efficient than making individual Check calls when verifying permissions
+   * for multiple items. It answers questions like:
+   * "Which of these resources can subject *X* perform action *Y* on?"
+   *
+   * Common use cases include:
+   * - Filtering lists based on user permissions
+   * - Batch authorization checks before performing bulk operations
+   * - Dashboard rendering with multiple permission checks
+   * - Pre-authorization for UI components
+   *
+   * The response includes a result for each item in the request, maintaining the same order.
+   */
+  checkBulk: {
+    path: "/kessel.inventory.v1beta2.KesselInventoryService/CheckBulk",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: CheckBulkRequest) =>
+      Buffer.from(CheckBulkRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => CheckBulkRequest.decode(value),
+    responseSerialize: (value: CheckBulkResponse) =>
+      Buffer.from(CheckBulkResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => CheckBulkResponse.decode(value),
+  },
+  /**
    * Reports to Kessel Inventory that a Resource has been created or has been updated.
    *
    * Reporters can use this API to report facts about their resources in order to
@@ -375,6 +437,22 @@ export interface KesselInventoryServiceServer
     CheckForUpdateRequest,
     CheckForUpdateResponse
   >;
+  /**
+   * Performs bulk permission checks for multiple resource-subject-relation combinations.
+   *
+   * This API is more efficient than making individual Check calls when verifying permissions
+   * for multiple items. It answers questions like:
+   * "Which of these resources can subject *X* perform action *Y* on?"
+   *
+   * Common use cases include:
+   * - Filtering lists based on user permissions
+   * - Batch authorization checks before performing bulk operations
+   * - Dashboard rendering with multiple permission checks
+   * - Pre-authorization for UI components
+   *
+   * The response includes a result for each item in the request, maintaining the same order.
+   */
+  checkBulk: handleUnaryCall<CheckBulkRequest, CheckBulkResponse>;
   /**
    * Reports to Kessel Inventory that a Resource has been created or has been updated.
    *
@@ -504,6 +582,36 @@ export interface KesselInventoryServiceClient extends Client {
       error: ServiceError | null,
       response: CheckForUpdateResponse,
     ) => void,
+  ): ClientUnaryCall;
+  /**
+   * Performs bulk permission checks for multiple resource-subject-relation combinations.
+   *
+   * This API is more efficient than making individual Check calls when verifying permissions
+   * for multiple items. It answers questions like:
+   * "Which of these resources can subject *X* perform action *Y* on?"
+   *
+   * Common use cases include:
+   * - Filtering lists based on user permissions
+   * - Batch authorization checks before performing bulk operations
+   * - Dashboard rendering with multiple permission checks
+   * - Pre-authorization for UI components
+   *
+   * The response includes a result for each item in the request, maintaining the same order.
+   */
+  checkBulk(
+    request: CheckBulkRequest,
+    callback: (error: ServiceError | null, response: CheckBulkResponse) => void,
+  ): ClientUnaryCall;
+  checkBulk(
+    request: CheckBulkRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: CheckBulkResponse) => void,
+  ): ClientUnaryCall;
+  checkBulk(
+    request: CheckBulkRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: CheckBulkResponse) => void,
   ): ClientUnaryCall;
   /**
    * Reports to Kessel Inventory that a Resource has been created or has been updated.
