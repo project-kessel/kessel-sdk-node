@@ -124,8 +124,9 @@ npm run build
 
 ```bash
 # Commit the version bump and any related changes
+export VERSION=$(cat package.json | jq .version -r)
 git add package.json package-lock.json
-git commit -m "chore: bump version to X.Y.Z"
+git commit -m "chore: bump version to ${VERSION}"
 git push origin main # or git push upstream main
 ```
 
@@ -143,8 +144,8 @@ npm publish
 
 ```bash
 # Create and push a git tag
-git tag -a vX.Y.Z -m "Release version X.Y.Z"
-git push origin vX.Y.Z
+git tag -a v${VERSION} -m "Release version ${VERSION}"
+git push origin v${VERSION} # or git push upstream v${VERSION}
 ```
 
 7. **Create GitHub Release**
