@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "vanilla:check": "tsx vanilla/check.ts",
+    "vanilla:check_bulk": "tsx vanilla/check_bulk.ts",
     "vanilla:check_for_update": "tsx vanilla/check_for_update.ts",
     "vanilla:delete_resource": "tsx vanilla/delete_resource.ts",
     "vanilla:report_resource": "tsx vanilla/report_resource.ts",
@@ -10,6 +11,7 @@
     "vanilla:promisify": "tsx vanilla/promisify.ts",
     "vanilla:auth": "tsx vanilla/auth.ts",
     "builder:check": "tsx builder/check.ts",
+    "builder:check_bulk": "tsx builder/check_bulk.ts",
     "builder:check_for_update": "tsx builder/check_for_update.ts",
     "builder:delete_resource": "tsx builder/delete_resource.ts",
     "builder:report_resource": "tsx builder/report_resource.ts",
