@@ -39,6 +39,11 @@
       "import": "./dist/esm/kessel/rbac/v2.js",
       "types": "./dist/types/kessel/rbac/v2.d.ts"
     },
+    "./kessel/grpc": {
+      "require": "./dist/cjs/kessel/grpc/index.js",
+      "import": "./dist/esm/kessel/grpc/index.js",
+      "types": "./dist/types/kessel/grpc/index.d.ts"
+    },
     "./promisify": {
       "require": "./dist/cjs/promisify.js",
       "import": "./dist/esm/promisify.js",
@@ -56,11 +61,11 @@
   "scripts": {
     "build": "run-p build:cjs build:esm build:types",
     "build:cjs": "tsc --module commonjs --outDir dist/cjs/ && echo '{\"type\":\"commonjs\"}' > dist/cjs/package.json",
-    "build:esm": "tsc --module es2022 --outDir dist/esm/ && echo '{\"type\":\"module\"}' > dist/cjs/package.json",
+    "build:esm": "tsc --module es2022 --outDir dist/esm/ && tsc-alias && echo '{\"type\":\"module\"}' > dist/esm/package.json",
     "build:types": "tsc --declaration true --emitDeclarationOnly true --declarationDir dist/types",
     "prettier": "npm run prettier:base -- --write",
     "prettier:check": "npm run prettier:base -- --check",
-    "prettier:base": "prettier src/** *.json ./*js README.md examples/**",
+    "prettier:base": "prettier src/** *.json ./*js README.md examples/** tsc-alias-replacers/**",
     "lint": "eslint --fix src examples",
     "lint:check": "eslint src examples",
     "test": "jest"
@@ -111,10 +116,12 @@
     "eslint": "^9.28.0",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-jest": "^28.13.5",
+    "fix-esm-import-path": "^1.10.3",
     "jest": "^30.0.0",
     "npm-run-all": "^4.1.5",
     "prettier": "^3.5.3",
     "ts-jest": "^29.4.0",
+    "tsc-alias": "^1.8.16",
     "typescript": "^5.8.3"
   },
   "publishConfig": {

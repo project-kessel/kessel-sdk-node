@@ -4,10 +4,20 @@
     "moduleResolution": "node",
     "module": "es2022",
     "declaration": false,
-    "outDir": "esm",
+    "outDir": "dist/esm",
     "esModuleInterop": true,
     "strict": true,
     "strictNullChecks": false
+  },
+  "tsc-alias": {
+    "verbose": false,
+    "resolveFullPaths": true,
+    "replacers": {
+      "replacer": {
+        "enabled": true,
+        "file": "./tsc-alias-replacers/replacer.js"
+      }
+    }
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "src/**/__tests__/**"]
