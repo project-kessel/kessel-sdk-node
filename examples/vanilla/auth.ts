@@ -4,9 +4,9 @@ import { SubjectReference } from "@project-kessel/kessel-sdk/kessel/inventory/v1
 import { CheckRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/check_request";
 import {
   fetchOIDCDiscovery,
-  OIDCDiscoveryMetadata,
   OAuth2ClientCredentials,
 } from "@project-kessel/kessel-sdk/kessel/auth";
+import type { OIDCDiscoveryMetadata } from "@project-kessel/kessel-sdk/kessel/auth";
 import { oauth2CallCredentials } from "@project-kessel/kessel-sdk/kessel/grpc";
 import "dotenv/config";
 import { ChannelCredentials, credentials } from "@grpc/grpc-js";
