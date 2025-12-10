@@ -1,4 +1,4 @@
-name: Build
+name: Lint, Build, Test
 
 on:
   push:
@@ -30,3 +30,5 @@ jobs:
         run: npm run prettier:check
       - name: Build
         run: npm run build
+      - name: Test
+        run: npm test
