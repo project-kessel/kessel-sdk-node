@@ -25,6 +25,10 @@ import { CheckForUpdateRequest } from "./check_for_update_request";
 import { CheckForUpdateResponse } from "./check_for_update_response";
 import { CheckRequest } from "./check_request";
 import { CheckResponse } from "./check_response";
+import { CheckSelfBulkRequest } from "./check_self_bulk_request";
+import { CheckSelfBulkResponse } from "./check_self_bulk_response";
+import { CheckSelfRequest } from "./check_self_request";
+import { CheckSelfResponse } from "./check_self_response";
 import { DeleteResourceRequest } from "./delete_resource_request";
 import { DeleteResourceResponse } from "./delete_resource_response";
 import { ReportResourceRequest } from "./report_resource_request";
@@ -65,9 +69,37 @@ export const KesselInventoryServiceDefinition = {
         _unknownFields: {
           578365826: [
             Buffer.from([
-              33, 58, 1, 42, 34, 28, 47, 97, 112, 105, 47, 105, 110, 118, 101,
-              110, 116, 111, 114, 121, 47, 118, 49, 98, 101, 116, 97, 50, 47,
-              99, 104, 101, 99, 107,
+              30, 58, 1, 42, 34, 25, 47, 97, 112, 105, 47, 107, 101, 115, 115,
+              101, 108, 47, 118, 49, 98, 101, 116, 97, 50, 47, 99, 104, 101, 99,
+              107,
+            ]),
+          ],
+        },
+      },
+    },
+    /**
+     * Performs a relationship check where the subject is implicitly the caller
+     * (self), as determined by the authentication context, rather than being
+     * provided explicitly in the request.
+     *
+     * This API answers the question:
+     * "Does the current caller have relation *Y* on object *Z*?"
+     *
+     * Common use cases include enforcing access checks for the authenticated user.
+     */
+    checkSelf: {
+      name: "CheckSelf",
+      requestType: CheckSelfRequest,
+      requestStream: false,
+      responseType: CheckSelfResponse,
+      responseStream: false,
+      options: {
+        _unknownFields: {
+          578365826: [
+            Buffer.from([
+              34, 58, 1, 42, 34, 29, 47, 97, 112, 105, 47, 107, 101, 115, 115,
+              101, 108, 47, 118, 49, 98, 101, 116, 97, 50, 47, 99, 104, 101, 99,
+              107, 115, 101, 108, 102,
             ]),
           ],
         },
@@ -95,9 +127,9 @@ export const KesselInventoryServiceDefinition = {
         _unknownFields: {
           578365826: [
             Buffer.from([
-              42, 58, 1, 42, 34, 37, 47, 97, 112, 105, 47, 105, 110, 118, 101,
-              110, 116, 111, 114, 121, 47, 118, 49, 98, 101, 116, 97, 50, 47,
-              99, 104, 101, 99, 107, 102, 111, 114, 117, 112, 100, 97, 116, 101,
+              39, 58, 1, 42, 34, 34, 47, 97, 112, 105, 47, 107, 101, 115, 115,
+              101, 108, 47, 118, 49, 98, 101, 116, 97, 50, 47, 99, 104, 101, 99,
+              107, 102, 111, 114, 117, 112, 100, 97, 116, 101,
             ]),
           ],
         },
@@ -128,9 +160,38 @@ export const KesselInventoryServiceDefinition = {
         _unknownFields: {
           578365826: [
             Buffer.from([
-              37, 58, 1, 42, 34, 32, 47, 97, 112, 105, 47, 105, 110, 118, 101,
-              110, 116, 111, 114, 121, 47, 118, 49, 98, 101, 116, 97, 50, 47,
-              99, 104, 101, 99, 107, 98, 117, 108, 107,
+              34, 58, 1, 42, 34, 29, 47, 97, 112, 105, 47, 107, 101, 115, 115,
+              101, 108, 47, 118, 49, 98, 101, 116, 97, 50, 47, 99, 104, 101, 99,
+              107, 98, 117, 108, 107,
+            ]),
+          ],
+        },
+      },
+    },
+    /**
+     * Performs bulk permission checks where the subject is implicitly the caller
+     * (self) for multiple resource-relation combinations.
+     *
+     * This API is more efficient than making individual CheckSelf calls when
+     * verifying permissions for multiple items. It answers questions like:
+     * "Which of these resources can the current caller perform action *Y* on?"
+     *
+     * The response includes a result for each item in the request, maintaining
+     * the same order.
+     */
+    checkSelfBulk: {
+      name: "CheckSelfBulk",
+      requestType: CheckSelfBulkRequest,
+      requestStream: false,
+      responseType: CheckSelfBulkResponse,
+      responseStream: false,
+      options: {
+        _unknownFields: {
+          578365826: [
+            Buffer.from([
+              38, 58, 1, 42, 34, 33, 47, 97, 112, 105, 47, 107, 101, 115, 115,
+              101, 108, 47, 118, 49, 98, 101, 116, 97, 50, 47, 99, 104, 101, 99,
+              107, 115, 101, 108, 102, 98, 117, 108, 107,
             ]),
           ],
         },
@@ -174,9 +235,9 @@ export const KesselInventoryServiceDefinition = {
         _unknownFields: {
           578365826: [
             Buffer.from([
-              37, 58, 1, 42, 34, 32, 47, 97, 112, 105, 47, 105, 110, 118, 101,
-              110, 116, 111, 114, 121, 47, 118, 49, 98, 101, 116, 97, 50, 47,
-              114, 101, 115, 111, 117, 114, 99, 101, 115,
+              34, 58, 1, 42, 34, 29, 47, 97, 112, 105, 47, 107, 101, 115, 115,
+              101, 108, 47, 118, 49, 98, 101, 116, 97, 50, 47, 114, 101, 115,
+              111, 117, 114, 99, 101, 115,
             ]),
           ],
         },
@@ -205,9 +266,9 @@ export const KesselInventoryServiceDefinition = {
         _unknownFields: {
           578365826: [
             Buffer.from([
-              37, 58, 1, 42, 42, 32, 47, 97, 112, 105, 47, 105, 110, 118, 101,
-              110, 116, 111, 114, 121, 47, 118, 49, 98, 101, 116, 97, 50, 47,
-              114, 101, 115, 111, 117, 114, 99, 101, 115,
+              34, 58, 1, 42, 42, 29, 47, 97, 112, 105, 47, 107, 101, 115, 115,
+              101, 108, 47, 118, 49, 98, 101, 116, 97, 50, 47, 114, 101, 115,
+              111, 117, 114, 99, 101, 115,
             ]),
           ],
         },
@@ -266,6 +327,27 @@ export const KesselInventoryServiceService = {
     responseDeserialize: (value: Buffer) => CheckResponse.decode(value),
   },
   /**
+   * Performs a relationship check where the subject is implicitly the caller
+   * (self), as determined by the authentication context, rather than being
+   * provided explicitly in the request.
+   *
+   * This API answers the question:
+   * "Does the current caller have relation *Y* on object *Z*?"
+   *
+   * Common use cases include enforcing access checks for the authenticated user.
+   */
+  checkSelf: {
+    path: "/kessel.inventory.v1beta2.KesselInventoryService/CheckSelf",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: CheckSelfRequest) =>
+      Buffer.from(CheckSelfRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => CheckSelfRequest.decode(value),
+    responseSerialize: (value: CheckSelfResponse) =>
+      Buffer.from(CheckSelfResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => CheckSelfResponse.decode(value),
+  },
+  /**
    * Performs a strongly consistent relationship check to determine whether a subject
    * has a specific relation to an object (representing, for example, a permission).
    *
@@ -314,6 +396,28 @@ export const KesselInventoryServiceService = {
     responseSerialize: (value: CheckBulkResponse) =>
       Buffer.from(CheckBulkResponse.encode(value).finish()),
     responseDeserialize: (value: Buffer) => CheckBulkResponse.decode(value),
+  },
+  /**
+   * Performs bulk permission checks where the subject is implicitly the caller
+   * (self) for multiple resource-relation combinations.
+   *
+   * This API is more efficient than making individual CheckSelf calls when
+   * verifying permissions for multiple items. It answers questions like:
+   * "Which of these resources can the current caller perform action *Y* on?"
+   *
+   * The response includes a result for each item in the request, maintaining
+   * the same order.
+   */
+  checkSelfBulk: {
+    path: "/kessel.inventory.v1beta2.KesselInventoryService/CheckSelfBulk",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: CheckSelfBulkRequest) =>
+      Buffer.from(CheckSelfBulkRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => CheckSelfBulkRequest.decode(value),
+    responseSerialize: (value: CheckSelfBulkResponse) =>
+      Buffer.from(CheckSelfBulkResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => CheckSelfBulkResponse.decode(value),
   },
   /**
    * Reports to Kessel Inventory that a Resource has been created or has been updated.
@@ -422,6 +526,17 @@ export interface KesselInventoryServiceServer
    */
   check: handleUnaryCall<CheckRequest, CheckResponse>;
   /**
+   * Performs a relationship check where the subject is implicitly the caller
+   * (self), as determined by the authentication context, rather than being
+   * provided explicitly in the request.
+   *
+   * This API answers the question:
+   * "Does the current caller have relation *Y* on object *Z*?"
+   *
+   * Common use cases include enforcing access checks for the authenticated user.
+   */
+  checkSelf: handleUnaryCall<CheckSelfRequest, CheckSelfResponse>;
+  /**
    * Performs a strongly consistent relationship check to determine whether a subject
    * has a specific relation to an object (representing, for example, a permission).
    *
@@ -453,6 +568,18 @@ export interface KesselInventoryServiceServer
    * The response includes a result for each item in the request, maintaining the same order.
    */
   checkBulk: handleUnaryCall<CheckBulkRequest, CheckBulkResponse>;
+  /**
+   * Performs bulk permission checks where the subject is implicitly the caller
+   * (self) for multiple resource-relation combinations.
+   *
+   * This API is more efficient than making individual CheckSelf calls when
+   * verifying permissions for multiple items. It answers questions like:
+   * "Which of these resources can the current caller perform action *Y* on?"
+   *
+   * The response includes a result for each item in the request, maintaining
+   * the same order.
+   */
+  checkSelfBulk: handleUnaryCall<CheckSelfBulkRequest, CheckSelfBulkResponse>;
   /**
    * Reports to Kessel Inventory that a Resource has been created or has been updated.
    *
@@ -548,6 +675,31 @@ export interface KesselInventoryServiceClient extends Client {
     callback: (error: ServiceError | null, response: CheckResponse) => void,
   ): ClientUnaryCall;
   /**
+   * Performs a relationship check where the subject is implicitly the caller
+   * (self), as determined by the authentication context, rather than being
+   * provided explicitly in the request.
+   *
+   * This API answers the question:
+   * "Does the current caller have relation *Y* on object *Z*?"
+   *
+   * Common use cases include enforcing access checks for the authenticated user.
+   */
+  checkSelf(
+    request: CheckSelfRequest,
+    callback: (error: ServiceError | null, response: CheckSelfResponse) => void,
+  ): ClientUnaryCall;
+  checkSelf(
+    request: CheckSelfRequest,
+    metadata: Metadata,
+    callback: (error: ServiceError | null, response: CheckSelfResponse) => void,
+  ): ClientUnaryCall;
+  checkSelf(
+    request: CheckSelfRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (error: ServiceError | null, response: CheckSelfResponse) => void,
+  ): ClientUnaryCall;
+  /**
    * Performs a strongly consistent relationship check to determine whether a subject
    * has a specific relation to an object (representing, for example, a permission).
    *
@@ -612,6 +764,41 @@ export interface KesselInventoryServiceClient extends Client {
     metadata: Metadata,
     options: Partial<CallOptions>,
     callback: (error: ServiceError | null, response: CheckBulkResponse) => void,
+  ): ClientUnaryCall;
+  /**
+   * Performs bulk permission checks where the subject is implicitly the caller
+   * (self) for multiple resource-relation combinations.
+   *
+   * This API is more efficient than making individual CheckSelf calls when
+   * verifying permissions for multiple items. It answers questions like:
+   * "Which of these resources can the current caller perform action *Y* on?"
+   *
+   * The response includes a result for each item in the request, maintaining
+   * the same order.
+   */
+  checkSelfBulk(
+    request: CheckSelfBulkRequest,
+    callback: (
+      error: ServiceError | null,
+      response: CheckSelfBulkResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  checkSelfBulk(
+    request: CheckSelfBulkRequest,
+    metadata: Metadata,
+    callback: (
+      error: ServiceError | null,
+      response: CheckSelfBulkResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  checkSelfBulk(
+    request: CheckSelfBulkRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (
+      error: ServiceError | null,
+      response: CheckSelfBulkResponse,
+    ) => void,
   ): ClientUnaryCall;
   /**
    * Reports to Kessel Inventory that a Resource has been created or has been updated.
