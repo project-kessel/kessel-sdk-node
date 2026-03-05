@@ -10,7 +10,12 @@ import { ConsistencyToken } from "./consistency_token";
 
 export const protobufPackage = "kessel.inventory.v1beta2";
 
-/** Defines how a request is handled by the service. */
+/**
+ * Defines how a request is handled by the service.
+ * If consistency is omitted by the client, standard server configuration uses
+ * minimize_latency by default, but deployments may override that default (for
+ * example, to at_least_as_acknowledged).
+ */
 export interface Consistency {
   /**
    * The service selects the fastest snapshot available.
@@ -23,10 +28,26 @@ export interface Consistency {
    * if available or faster.
    */
   atLeastAsFresh?: ConsistencyToken | undefined;
+  /**
+   * All data used in the API call must be *at least as acknowledged*,
+   * meaning it includes data up to the latest write known to Inventory.
+   * This aligns with `ReportResource` write visibility: when
+   * `write_visibility=IMMEDIATE`, the write waits for acknowledgement, so a
+   * subsequent read with `at_least_as_acknowledged` is guaranteed to be at
+   * least as recent as that write.
+   * Some deployments may use this behavior as the server-side default when
+   * consistency is omitted.
+   * *Must* be set true if used.
+   */
+  atLeastAsAcknowledged?: boolean | undefined;
 }
 
 function createBaseConsistency(): Consistency {
-  return { minimizeLatency: undefined, atLeastAsFresh: undefined };
+  return {
+    minimizeLatency: undefined,
+    atLeastAsFresh: undefined,
+    atLeastAsAcknowledged: undefined,
+  };
 }
 
 export const Consistency = {
@@ -42,6 +63,9 @@ export const Consistency = {
         message.atLeastAsFresh,
         writer.uint32(18).fork(),
       ).ldelim();
+    }
+    if (message.atLeastAsAcknowledged !== undefined) {
+      writer.uint32(24).bool(message.atLeastAsAcknowledged);
     }
     return writer;
   },
@@ -71,6 +95,13 @@ export const Consistency = {
             reader.uint32(),
           );
           continue;
+        case 3:
+          if (tag !== 24) {
+            break;
+          }
+
+          message.atLeastAsAcknowledged = reader.bool();
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -88,6 +119,9 @@ export const Consistency = {
       atLeastAsFresh: isSet(object.atLeastAsFresh)
         ? ConsistencyToken.fromJSON(object.atLeastAsFresh)
         : undefined,
+      atLeastAsAcknowledged: isSet(object.atLeastAsAcknowledged)
+        ? globalThis.Boolean(object.atLeastAsAcknowledged)
+        : undefined,
     };
   },
 
@@ -98,6 +132,9 @@ export const Consistency = {
     }
     if (message.atLeastAsFresh !== undefined) {
       obj.atLeastAsFresh = ConsistencyToken.toJSON(message.atLeastAsFresh);
+    }
+    if (message.atLeastAsAcknowledged !== undefined) {
+      obj.atLeastAsAcknowledged = message.atLeastAsAcknowledged;
     }
     return obj;
   },
@@ -114,6 +151,7 @@ export const Consistency = {
       object.atLeastAsFresh !== undefined && object.atLeastAsFresh !== null
         ? ConsistencyToken.fromPartial(object.atLeastAsFresh)
         : undefined;
+    message.atLeastAsAcknowledged = object.atLeastAsAcknowledged ?? undefined;
     return message;
   },
 };

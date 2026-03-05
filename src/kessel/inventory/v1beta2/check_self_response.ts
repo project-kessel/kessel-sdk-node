@@ -2,7 +2,7 @@
 // versions:
 //   protoc-gen-ts_proto  v1.178.0
 //   protoc               unknown
-// source: kessel/inventory/v1beta2/check_response.proto
+// source: kessel/inventory/v1beta2/check_self_response.proto
 
 /* eslint-disable */
 import _m0 from "protobufjs/minimal";
@@ -11,18 +11,19 @@ import { ConsistencyToken } from "./consistency_token";
 
 export const protobufPackage = "kessel.inventory.v1beta2";
 
-export interface CheckResponse {
+/** CheckSelfResponse represents the result of a self-access permission check. */
+export interface CheckSelfResponse {
   allowed?: Allowed | undefined;
   consistencyToken?: ConsistencyToken | undefined;
 }
 
-function createBaseCheckResponse(): CheckResponse {
+function createBaseCheckSelfResponse(): CheckSelfResponse {
   return { allowed: 0, consistencyToken: undefined };
 }
 
-export const CheckResponse = {
+export const CheckSelfResponse = {
   encode(
-    message: CheckResponse,
+    message: CheckSelfResponse,
     writer: _m0.Writer = _m0.Writer.create(),
   ): _m0.Writer {
     if (message.allowed !== undefined && message.allowed !== 0) {
@@ -37,11 +38,11 @@ export const CheckResponse = {
     return writer;
   },
 
-  decode(input: _m0.Reader | Uint8Array, length?: number): CheckResponse {
+  decode(input: _m0.Reader | Uint8Array, length?: number): CheckSelfResponse {
     const reader =
       input instanceof _m0.Reader ? input : _m0.Reader.create(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseCheckResponse();
+    const message = createBaseCheckSelfResponse();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -71,7 +72,7 @@ export const CheckResponse = {
     return message;
   },
 
-  fromJSON(object: any): CheckResponse {
+  fromJSON(object: any): CheckSelfResponse {
     return {
       allowed: isSet(object.allowed) ? allowedFromJSON(object.allowed) : 0,
       consistencyToken: isSet(object.consistencyToken)
@@ -80,7 +81,7 @@ export const CheckResponse = {
     };
   },
 
-  toJSON(message: CheckResponse): unknown {
+  toJSON(message: CheckSelfResponse): unknown {
     const obj: any = {};
     if (message.allowed !== undefined && message.allowed !== 0) {
       obj.allowed = allowedToJSON(message.allowed);
@@ -91,15 +92,15 @@ export const CheckResponse = {
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CheckResponse>, I>>(
+  create<I extends Exact<DeepPartial<CheckSelfResponse>, I>>(
     base?: I,
-  ): CheckResponse {
-    return CheckResponse.fromPartial(base ?? ({} as any));
+  ): CheckSelfResponse {
+    return CheckSelfResponse.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CheckResponse>, I>>(
+  fromPartial<I extends Exact<DeepPartial<CheckSelfResponse>, I>>(
     object: I,
-  ): CheckResponse {
-    const message = createBaseCheckResponse();
+  ): CheckSelfResponse {
+    const message = createBaseCheckSelfResponse();
     message.allowed = object.allowed ?? 0;
     message.consistencyToken =
       object.consistencyToken !== undefined && object.consistencyToken !== null

@@ -2,47 +2,41 @@
 // versions:
 //   protoc-gen-ts_proto  v1.178.0
 //   protoc               unknown
-// source: kessel/inventory/v1beta2/check_request.proto
+// source: kessel/inventory/v1beta2/check_self_request.proto
 
 /* eslint-disable */
 import _m0 from "protobufjs/minimal";
 import { Consistency } from "./consistency";
 import { ResourceReference } from "./resource_reference";
-import { SubjectReference } from "./subject_reference";
 
 export const protobufPackage = "kessel.inventory.v1beta2";
 
-export interface CheckRequest {
+/**
+ * CheckSelfRequest performs an access check for the caller (self) against a
+ * specific object and relation. The subject is derived from the caller's
+ * authenticated identity rather than being provided explicitly.
+ */
+export interface CheckSelfRequest {
   /**
    * Required parameters (from an authz perspective)
    * - resource type and id
    * - permission (cannot be derived from the type as a type may have multiple 'read' permissions. Ex: https://github.com/RedHatInsights/rbac-config/blob/master/configs/prod/schemas/src/notifications.ksl#L31)
-   * - user (possibly derived from an identity token)
+   *
+   * The subject is implicitly the caller, as determined by the authentication
+   * context, instead of being provided as a SubjectReference.
    */
   object?: ResourceReference | undefined;
   relation?: string | undefined;
-  subject?: SubjectReference | undefined;
-  /**
-   * Consistency requirement for the check operation.
-   * If not specified, standard server configuration defaults to minimizeLatency.
-   * Server deployments may override this default behavior (for example, to
-   * at_least_as_acknowledged).
-   */
   consistency?: Consistency | undefined;
 }
 
-function createBaseCheckRequest(): CheckRequest {
-  return {
-    object: undefined,
-    relation: "",
-    subject: undefined,
-    consistency: undefined,
-  };
+function createBaseCheckSelfRequest(): CheckSelfRequest {
+  return { object: undefined, relation: "", consistency: undefined };
 }
 
-export const CheckRequest = {
+export const CheckSelfRequest = {
   encode(
-    message: CheckRequest,
+    message: CheckSelfRequest,
     writer: _m0.Writer = _m0.Writer.create(),
   ): _m0.Writer {
     if (message.object !== undefined) {
@@ -54,26 +48,20 @@ export const CheckRequest = {
     if (message.relation !== undefined && message.relation !== "") {
       writer.uint32(18).string(message.relation);
     }
-    if (message.subject !== undefined) {
-      SubjectReference.encode(
-        message.subject,
-        writer.uint32(26).fork(),
-      ).ldelim();
-    }
     if (message.consistency !== undefined) {
       Consistency.encode(
         message.consistency,
-        writer.uint32(34).fork(),
+        writer.uint32(26).fork(),
       ).ldelim();
     }
     return writer;
   },
 
-  decode(input: _m0.Reader | Uint8Array, length?: number): CheckRequest {
+  decode(input: _m0.Reader | Uint8Array, length?: number): CheckSelfRequest {
     const reader =
       input instanceof _m0.Reader ? input : _m0.Reader.create(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseCheckRequest();
+    const message = createBaseCheckSelfRequest();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -96,13 +84,6 @@ export const CheckRequest = {
             break;
           }
 
-          message.subject = SubjectReference.decode(reader, reader.uint32());
-          continue;
-        case 4:
-          if (tag !== 34) {
-            break;
-          }
-
           message.consistency = Consistency.decode(reader, reader.uint32());
           continue;
       }
@@ -114,7 +95,7 @@ export const CheckRequest = {
     return message;
   },
 
-  fromJSON(object: any): CheckRequest {
+  fromJSON(object: any): CheckSelfRequest {
     return {
       object: isSet(object.object)
         ? ResourceReference.fromJSON(object.object)
@@ -122,16 +103,13 @@ export const CheckRequest = {
       relation: isSet(object.relation)
         ? globalThis.String(object.relation)
         : "",
-      subject: isSet(object.subject)
-        ? SubjectReference.fromJSON(object.subject)
-        : undefined,
       consistency: isSet(object.consistency)
         ? Consistency.fromJSON(object.consistency)
         : undefined,
     };
   },
 
-  toJSON(message: CheckRequest): unknown {
+  toJSON(message: CheckSelfRequest): unknown {
     const obj: any = {};
     if (message.object !== undefined) {
       obj.object = ResourceReference.toJSON(message.object);
@@ -139,33 +117,26 @@ export const CheckRequest = {
     if (message.relation !== undefined && message.relation !== "") {
       obj.relation = message.relation;
     }
-    if (message.subject !== undefined) {
-      obj.subject = SubjectReference.toJSON(message.subject);
-    }
     if (message.consistency !== undefined) {
       obj.consistency = Consistency.toJSON(message.consistency);
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<CheckRequest>, I>>(
+  create<I extends Exact<DeepPartial<CheckSelfRequest>, I>>(
     base?: I,
-  ): CheckRequest {
-    return CheckRequest.fromPartial(base ?? ({} as any));
+  ): CheckSelfRequest {
+    return CheckSelfRequest.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<CheckRequest>, I>>(
+  fromPartial<I extends Exact<DeepPartial<CheckSelfRequest>, I>>(
     object: I,
-  ): CheckRequest {
-    const message = createBaseCheckRequest();
+  ): CheckSelfRequest {
+    const message = createBaseCheckSelfRequest();
     message.object =
       object.object !== undefined && object.object !== null
         ? ResourceReference.fromPartial(object.object)
         : undefined;
     message.relation = object.relation ?? "";
-    message.subject =
-      object.subject !== undefined && object.subject !== null
-        ? SubjectReference.fromPartial(object.subject)
-        : undefined;
     message.consistency =
       object.consistency !== undefined && object.consistency !== null
         ? Consistency.fromPartial(object.consistency)
