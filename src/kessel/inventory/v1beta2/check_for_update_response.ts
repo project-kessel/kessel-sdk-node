@@ -7,15 +7,17 @@
 /* eslint-disable */
 import _m0 from "protobufjs/minimal";
 import { Allowed, allowedFromJSON, allowedToJSON } from "./allowed";
+import { ConsistencyToken } from "./consistency_token";
 
 export const protobufPackage = "kessel.inventory.v1beta2";
 
 export interface CheckForUpdateResponse {
   allowed?: Allowed | undefined;
+  consistencyToken?: ConsistencyToken | undefined;
 }
 
 function createBaseCheckForUpdateResponse(): CheckForUpdateResponse {
-  return { allowed: 0 };
+  return { allowed: 0, consistencyToken: undefined };
 }
 
 export const CheckForUpdateResponse = {
@@ -25,6 +27,12 @@ export const CheckForUpdateResponse = {
   ): _m0.Writer {
     if (message.allowed !== undefined && message.allowed !== 0) {
       writer.uint32(8).int32(message.allowed);
+    }
+    if (message.consistencyToken !== undefined) {
+      ConsistencyToken.encode(
+        message.consistencyToken,
+        writer.uint32(18).fork(),
+      ).ldelim();
     }
     return writer;
   },
@@ -47,6 +55,16 @@ export const CheckForUpdateResponse = {
 
           message.allowed = reader.int32() as any;
           continue;
+        case 2:
+          if (tag !== 18) {
+            break;
+          }
+
+          message.consistencyToken = ConsistencyToken.decode(
+            reader,
+            reader.uint32(),
+          );
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -59,6 +77,9 @@ export const CheckForUpdateResponse = {
   fromJSON(object: any): CheckForUpdateResponse {
     return {
       allowed: isSet(object.allowed) ? allowedFromJSON(object.allowed) : 0,
+      consistencyToken: isSet(object.consistencyToken)
+        ? ConsistencyToken.fromJSON(object.consistencyToken)
+        : undefined,
     };
   },
 
@@ -66,6 +87,9 @@ export const CheckForUpdateResponse = {
     const obj: any = {};
     if (message.allowed !== undefined && message.allowed !== 0) {
       obj.allowed = allowedToJSON(message.allowed);
+    }
+    if (message.consistencyToken !== undefined) {
+      obj.consistencyToken = ConsistencyToken.toJSON(message.consistencyToken);
     }
     return obj;
   },
@@ -80,6 +104,10 @@ export const CheckForUpdateResponse = {
   ): CheckForUpdateResponse {
     const message = createBaseCheckForUpdateResponse();
     message.allowed = object.allowed ?? 0;
+    message.consistencyToken =
+      object.consistencyToken !== undefined && object.consistencyToken !== null
+        ? ConsistencyToken.fromPartial(object.consistencyToken)
+        : undefined;
     return message;
   },
 };
