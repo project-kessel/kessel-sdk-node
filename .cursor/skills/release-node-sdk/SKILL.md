@@ -11,6 +11,8 @@ description: Release a new version of the Kessel Node.js SDK (@project-kessel/ke
 - npm account with publish access to `@project-kessel/kessel-sdk`
 - Node 20+
 - [buf](https://github.com/bufbuild/buf) for protobuf/gRPC code generation
+- [jq](https://jqlang.github.io/jq/) for extracting the version from `package.json`
+- [gh](https://cli.github.com/) (GitHub CLI) for creating releases
 
 ## Release Process
 
