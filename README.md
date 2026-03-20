@@ -93,10 +93,13 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/). Version n
 
 1. **Update the Version**
 
+Edit the `version` field in `package.json` to the new version number, following [Semantic Versioning](https://semver.org/) (see [Version Management](#version-management) above).
+
+Then set the `VERSION` env var from `package.json` for use in subsequent steps:
+
 ```bash
-# Edit package.json
-# Update the version field to the new version number
-vim package.json
+export VERSION=$(cat package.json | jq .version -r)
+echo "Releasing version: v${VERSION}"
 ```
 
 2. **Update Dependencies**
@@ -149,6 +152,12 @@ git push origin v${VERSION} # or git push upstream v${VERSION}
 ```
 
 7. **Create GitHub Release**
+
+```bash
+gh release create v${VERSION} --title "v${VERSION}" --generate-notes
+```
+
+Or manually:
 
 - Go to the [GitHub Releases page](https://github.com/project-kessel/kessel-sdk-node/releases)
 - Click "Create a new release"
