@@ -21,6 +21,8 @@ import {
 } from "@grpc/grpc-js";
 import { CheckBulkRequest } from "./check_bulk_request";
 import { CheckBulkResponse } from "./check_bulk_response";
+import { CheckForUpdateBulkRequest } from "./check_for_update_bulk_request";
+import { CheckForUpdateBulkResponse } from "./check_for_update_bulk_response";
 import { CheckForUpdateRequest } from "./check_for_update_request";
 import { CheckForUpdateResponse } from "./check_for_update_response";
 import { CheckRequest } from "./check_request";
@@ -130,6 +132,34 @@ export const KesselInventoryServiceDefinition = {
               39, 58, 1, 42, 34, 34, 47, 97, 112, 105, 47, 107, 101, 115, 115,
               101, 108, 47, 118, 49, 98, 101, 116, 97, 50, 47, 99, 104, 101, 99,
               107, 102, 111, 114, 117, 112, 100, 97, 116, 101,
+            ]),
+          ],
+        },
+      },
+    },
+    /**
+     * Performs bulk strongly consistent "check for update" permission checks.
+     *
+     * This API is more efficient than making individual CheckForUpdate calls when verifying
+     * update permissions for multiple resource-subject-relation combinations. Each item
+     * is evaluated with strong consistency (same semantics as CheckForUpdate).
+     *
+     * Common use cases include batch pre-authorization before bulk update or delete operations.
+     */
+    checkForUpdateBulk: {
+      name: "CheckForUpdateBulk",
+      requestType: CheckForUpdateBulkRequest,
+      requestStream: false,
+      responseType: CheckForUpdateBulkResponse,
+      responseStream: false,
+      options: {
+        _unknownFields: {
+          578365826: [
+            Buffer.from([
+              43, 58, 1, 42, 34, 38, 47, 97, 112, 105, 47, 107, 101, 115, 115,
+              101, 108, 47, 118, 49, 98, 101, 116, 97, 50, 47, 99, 104, 101, 99,
+              107, 102, 111, 114, 117, 112, 100, 97, 116, 101, 98, 117, 108,
+              107,
             ]),
           ],
         },
@@ -372,6 +402,28 @@ export const KesselInventoryServiceService = {
       CheckForUpdateResponse.decode(value),
   },
   /**
+   * Performs bulk strongly consistent "check for update" permission checks.
+   *
+   * This API is more efficient than making individual CheckForUpdate calls when verifying
+   * update permissions for multiple resource-subject-relation combinations. Each item
+   * is evaluated with strong consistency (same semantics as CheckForUpdate).
+   *
+   * Common use cases include batch pre-authorization before bulk update or delete operations.
+   */
+  checkForUpdateBulk: {
+    path: "/kessel.inventory.v1beta2.KesselInventoryService/CheckForUpdateBulk",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: CheckForUpdateBulkRequest) =>
+      Buffer.from(CheckForUpdateBulkRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer) =>
+      CheckForUpdateBulkRequest.decode(value),
+    responseSerialize: (value: CheckForUpdateBulkResponse) =>
+      Buffer.from(CheckForUpdateBulkResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer) =>
+      CheckForUpdateBulkResponse.decode(value),
+  },
+  /**
    * Performs bulk permission checks for multiple resource-subject-relation combinations.
    *
    * This API is more efficient than making individual Check calls when verifying permissions
@@ -551,6 +603,19 @@ export interface KesselInventoryServiceServer
   checkForUpdate: handleUnaryCall<
     CheckForUpdateRequest,
     CheckForUpdateResponse
+  >;
+  /**
+   * Performs bulk strongly consistent "check for update" permission checks.
+   *
+   * This API is more efficient than making individual CheckForUpdate calls when verifying
+   * update permissions for multiple resource-subject-relation combinations. Each item
+   * is evaluated with strong consistency (same semantics as CheckForUpdate).
+   *
+   * Common use cases include batch pre-authorization before bulk update or delete operations.
+   */
+  checkForUpdateBulk: handleUnaryCall<
+    CheckForUpdateBulkRequest,
+    CheckForUpdateBulkResponse
   >;
   /**
    * Performs bulk permission checks for multiple resource-subject-relation combinations.
@@ -733,6 +798,39 @@ export interface KesselInventoryServiceClient extends Client {
     callback: (
       error: ServiceError | null,
       response: CheckForUpdateResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  /**
+   * Performs bulk strongly consistent "check for update" permission checks.
+   *
+   * This API is more efficient than making individual CheckForUpdate calls when verifying
+   * update permissions for multiple resource-subject-relation combinations. Each item
+   * is evaluated with strong consistency (same semantics as CheckForUpdate).
+   *
+   * Common use cases include batch pre-authorization before bulk update or delete operations.
+   */
+  checkForUpdateBulk(
+    request: CheckForUpdateBulkRequest,
+    callback: (
+      error: ServiceError | null,
+      response: CheckForUpdateBulkResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  checkForUpdateBulk(
+    request: CheckForUpdateBulkRequest,
+    metadata: Metadata,
+    callback: (
+      error: ServiceError | null,
+      response: CheckForUpdateBulkResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  checkForUpdateBulk(
+    request: CheckForUpdateBulkRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (
+      error: ServiceError | null,
+      response: CheckForUpdateBulkResponse,
     ) => void,
   ): ClientUnaryCall;
   /**
