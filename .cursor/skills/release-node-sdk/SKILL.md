@@ -61,7 +61,30 @@ npm run lint
 npm run build
 ```
 
-### Step 5: Commit and Push
+### Step 5: Review and Confirm Changes
+
+Before committing, summarize what is included in this release for the user.
+
+1. Run the following to gather context:
+
+```bash
+LAST_TAG=$(git tag --sort=-v:refname | head -1)
+git log ${LAST_TAG}..HEAD --oneline
+git diff --stat
+```
+
+2. Analyze the commits and diffs, then present a **natural-language summary** to the user that includes:
+   - The release type (major, minor, or patch) and version number
+   - The number of commits and files changed since the last tag
+   - A concise description of what functionality is being added, changed, or fixed
+
+3. Use the `AskQuestion` tool to confirm before proceeding:
+   - Option A: "Yes, commit and continue the release"
+   - Option B: "No, I want to make more changes first"
+
+If the user chooses **B**, stop the release process and wait for further instructions.
+
+### Step 6: Commit and Push
 
 ```bash
 git add package.json package-lock.json
@@ -71,21 +94,21 @@ git push origin main
 
 Include any other changed files (generated code, etc.) in the commit.
 
-### Step 6: Build and Publish to npm
+### Step 7: Build and Publish to npm
 
 ```bash
 npm run build
 npm publish
 ```
 
-### Step 7: Tag the Release
+### Step 8: Tag the Release
 
 ```bash
 git tag -a v${VERSION} -m "Release version ${VERSION}"
 git push origin v${VERSION}
 ```
 
-### Step 8: Create GitHub Release
+### Step 9: Create GitHub Release
 
 ```bash
 gh release create v${VERSION} --title "v${VERSION}" --generate-notes
@@ -108,6 +131,7 @@ Release v${VERSION}:
 - [ ] Set VERSION env var
 - [ ] Update dependencies (npm install)
 - [ ] Run npm test, npm run lint, npm run build
+- [ ] Review changes and confirm with user before committing
 - [ ] Commit and push version bump
 - [ ] Publish to npm (npm publish)
 - [ ] Create and push git tag (v${VERSION})
