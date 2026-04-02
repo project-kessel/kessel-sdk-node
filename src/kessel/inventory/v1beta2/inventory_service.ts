@@ -37,6 +37,8 @@ import { ReportResourceRequest } from "./report_resource_request";
 import { ReportResourceResponse } from "./report_resource_response";
 import { StreamedListObjectsRequest } from "./streamed_list_objects_request";
 import { StreamedListObjectsResponse } from "./streamed_list_objects_response";
+import { StreamedListSubjectsRequest } from "./streamed_list_subjects_request";
+import { StreamedListSubjectsResponse } from "./streamed_list_subjects_response";
 
 export const protobufPackage = "kessel.inventory.v1beta2";
 
@@ -324,6 +326,26 @@ export const KesselInventoryServiceDefinition = {
       responseStream: true,
       options: {},
     },
+    /**
+     * Streams a list of subjects that have the specified relation to a resource.
+     *
+     * This relationship query answers the question:
+     * "Which subjects of type *X* have relation *Y* to resource *Z*?"
+     *
+     * It is often used for access auditing, troubleshooting permissions, or
+     * displaying lists of users/principals with specific access to a resource.
+     * The result is streamed incrementally to support large datasets.
+     *
+     * Pagination and consistency controls allow fine-tuned performance and data freshness.
+     */
+    streamedListSubjects: {
+      name: "StreamedListSubjects",
+      requestType: StreamedListSubjectsRequest,
+      requestStream: false,
+      responseType: StreamedListSubjectsResponse,
+      responseStream: true,
+      options: {},
+    },
   },
 } as const;
 
@@ -561,6 +583,31 @@ export const KesselInventoryServiceService = {
     responseDeserialize: (value: Buffer) =>
       StreamedListObjectsResponse.decode(value),
   },
+  /**
+   * Streams a list of subjects that have the specified relation to a resource.
+   *
+   * This relationship query answers the question:
+   * "Which subjects of type *X* have relation *Y* to resource *Z*?"
+   *
+   * It is often used for access auditing, troubleshooting permissions, or
+   * displaying lists of users/principals with specific access to a resource.
+   * The result is streamed incrementally to support large datasets.
+   *
+   * Pagination and consistency controls allow fine-tuned performance and data freshness.
+   */
+  streamedListSubjects: {
+    path: "/kessel.inventory.v1beta2.KesselInventoryService/StreamedListSubjects",
+    requestStream: false,
+    responseStream: true,
+    requestSerialize: (value: StreamedListSubjectsRequest) =>
+      Buffer.from(StreamedListSubjectsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer) =>
+      StreamedListSubjectsRequest.decode(value),
+    responseSerialize: (value: StreamedListSubjectsResponse) =>
+      Buffer.from(StreamedListSubjectsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer) =>
+      StreamedListSubjectsResponse.decode(value),
+  },
 } as const;
 
 export interface KesselInventoryServiceServer
@@ -709,6 +756,22 @@ export interface KesselInventoryServiceServer
   streamedListObjects: handleServerStreamingCall<
     StreamedListObjectsRequest,
     StreamedListObjectsResponse
+  >;
+  /**
+   * Streams a list of subjects that have the specified relation to a resource.
+   *
+   * This relationship query answers the question:
+   * "Which subjects of type *X* have relation *Y* to resource *Z*?"
+   *
+   * It is often used for access auditing, troubleshooting permissions, or
+   * displaying lists of users/principals with specific access to a resource.
+   * The result is streamed incrementally to support large datasets.
+   *
+   * Pagination and consistency controls allow fine-tuned performance and data freshness.
+   */
+  streamedListSubjects: handleServerStreamingCall<
+    StreamedListSubjectsRequest,
+    StreamedListSubjectsResponse
   >;
 }
 
@@ -1008,6 +1071,27 @@ export interface KesselInventoryServiceClient extends Client {
     metadata?: Metadata,
     options?: Partial<CallOptions>,
   ): ClientReadableStream<StreamedListObjectsResponse>;
+  /**
+   * Streams a list of subjects that have the specified relation to a resource.
+   *
+   * This relationship query answers the question:
+   * "Which subjects of type *X* have relation *Y* to resource *Z*?"
+   *
+   * It is often used for access auditing, troubleshooting permissions, or
+   * displaying lists of users/principals with specific access to a resource.
+   * The result is streamed incrementally to support large datasets.
+   *
+   * Pagination and consistency controls allow fine-tuned performance and data freshness.
+   */
+  streamedListSubjects(
+    request: StreamedListSubjectsRequest,
+    options?: Partial<CallOptions>,
+  ): ClientReadableStream<StreamedListSubjectsResponse>;
+  streamedListSubjects(
+    request: StreamedListSubjectsRequest,
+    metadata?: Metadata,
+    options?: Partial<CallOptions>,
+  ): ClientReadableStream<StreamedListSubjectsResponse>;
 }
 
 export const KesselInventoryServiceClient = makeGenericClientConstructor(
