@@ -1,7 +1,4 @@
-import {
-  principalFromRHIdentity,
-  principalFromRHIdentityHeader,
-} from "..";
+import { principalFromRHIdentity, principalFromRHIdentityHeader } from "..";
 
 function encodeHeader(payload: Record<string, unknown>): string {
   return Buffer.from(JSON.stringify(payload)).toString("base64");
@@ -167,9 +164,9 @@ describe("principalFromRHIdentityHeader", () => {
   });
 
   it("throws for malformed base64", () => {
-    expect(() =>
-      principalFromRHIdentityHeader("not-valid-base64!!!"),
-    ).toThrow(/Failed to decode identity header/);
+    expect(() => principalFromRHIdentityHeader("not-valid-base64!!!")).toThrow(
+      /Failed to decode identity header/,
+    );
   });
 
   it("throws for invalid JSON", () => {

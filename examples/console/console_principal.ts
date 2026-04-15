@@ -3,7 +3,6 @@ import {
   principalFromRHIdentityHeader,
 } from "@project-kessel/kessel-sdk/kessel/console";
 
-
 // --- From a parsed User identity object ---
 const userIdentity = {
   type: "User",
