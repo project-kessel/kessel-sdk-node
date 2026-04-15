@@ -93,6 +93,16 @@ npm test
 npm run lint
 ```
 
+### Formatting
+
+```bash
+# Check formatting
+npm run prettier:check
+
+# Auto-fix formatting
+npm run prettier
+```
+
 ### Type Checking
 
 ```bash
@@ -159,6 +169,8 @@ npm test
 # Run linting
 npm run lint
 
+# Check formatting
+npm run prettier:check
 
 # Build the project
 npm run build

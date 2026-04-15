@@ -58,6 +58,7 @@ npm install
 ```bash
 npm test
 npm run lint
+npm run prettier:check
 npm run build
 ```
 
@@ -130,7 +131,7 @@ Release v${VERSION}:
 - [ ] Update package.json version
 - [ ] Set VERSION env var
 - [ ] Update dependencies (npm install)
-- [ ] Run npm test, npm run lint, npm run build
+- [ ] Run npm test, npm run lint, npm run prettier:check, npm run build
 - [ ] Review changes and confirm with user before committing
 - [ ] Commit and push version bump
 - [ ] Publish to npm (npm publish)

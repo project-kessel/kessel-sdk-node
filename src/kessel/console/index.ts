@@ -70,9 +70,7 @@ export const principalFromRHIdentityHeader = (
 
   const identity = decoded.identity as Record<string, unknown> | undefined;
   if (identity == null) {
-    throw new Error(
-      'Identity header is missing the "identity" envelope key',
-    );
+    throw new Error('Identity header is missing the "identity" envelope key');
   }
 
   return principalFromRHIdentity(identity, domain);
