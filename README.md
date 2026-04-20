@@ -5,8 +5,13 @@ A TypeScript/JavaScript SDK for connecting to Kessel services using gRPC with a 
 ## Table of Contents
 
 - [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Authentication](#authentication)
 - [Examples](#examples)
+- [Project Structure](#project-structure)
 - [Development](#development)
+- [Release Instructions](#release-instructions)
+- [License](#license)
 
 ## Installation
 
@@ -14,49 +19,142 @@ A TypeScript/JavaScript SDK for connecting to Kessel services using gRPC with a 
 npm install @project-kessel/kessel-sdk
 ```
 
+If you need OAuth 2.0 authentication (recommended for production), also install the optional peer dependency:
+
+```bash
+npm install oauth4webapi
+```
+
+## Quick Start
+
+```typescript
+import { ClientBuilder } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2";
+import { CheckRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/check_request";
+import { SubjectReference } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/subject_reference";
+import { ResourceReference } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/resource_reference";
+
+// 1. Create a client using the builder
+const client = new ClientBuilder("localhost:9000")
+  .insecure() // for local development only
+  .buildAsync(); // returns a promisified client (use .build() for callback-style)
+
+// 2. Build your request
+const request: CheckRequest = {
+  subject: {
+    resource: {
+      reporter: { type: "rbac" },
+      resourceId: "foobar",
+      resourceType: "principal",
+    },
+  },
+  object: {
+    reporter: { type: "rbac" },
+    resourceId: "1234",
+    resourceType: "workspace",
+  },
+  relation: "inventory_host_view",
+};
+
+// 3. Make the call
+const response = await client.check(request);
+console.log(response);
+```
+
 ## Authentication
 
-The SDK supports OAuth 2.0 Client Credentials flow for authentication:
+The SDK supports multiple authentication modes via the `ClientBuilder` fluent API:
+
+### Insecure (local development only)
+
+```typescript
+const client = new ClientBuilder(target).insecure().buildAsync();
+```
+
+No TLS, no auth. Cannot be combined with call credentials.
+
+### OAuth 2.0 Client Credentials (production)
+
+```typescript
+import {
+  fetchOIDCDiscovery,
+  OAuth2ClientCredentials,
+} from "@project-kessel/kessel-sdk/kessel/auth";
+import { ClientBuilder } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2";
+
+// Discover the token endpoint via OIDC
+const discovery = await fetchOIDCDiscovery(
+  "https://sso.example.com/auth/realms/my-realm",
+);
+
+// Create OAuth credentials (tokens are cached and auto-refreshed)
+const auth = new OAuth2ClientCredentials({
+  clientId: "my-client-id",
+  clientSecret: "my-client-secret",
+  tokenEndpoint: discovery.tokenEndpoint,
+});
+
+// Build the client
+const client = new ClientBuilder("kessel.example.com:443")
+  .oauth2ClientAuthenticated(auth)
+  .buildAsync();
+```
+
+Requires the `oauth4webapi` optional dependency. See [docs/security-guidelines.md](./docs/security-guidelines.md) for details on credential handling and TLS.
+
+### Custom / Unauthenticated
+
+```typescript
+// TLS without auth
+new ClientBuilder(target).unauthenticated().buildAsync();
+
+// Custom call credentials
+new ClientBuilder(target)
+  .authenticated(callCredentials, channelCredentials)
+  .buildAsync();
+```
 
 ## Examples
 
 Check out the [examples directory](./examples) for working code samples:
 
-- **Builder examples**: Modern async/await patterns with client builder
-- **Vanilla examples**: Traditional callback patterns
-- **Authentication examples**: OAuth setup and usage
-- **Streaming examples**: Working with streaming APIs
+- **[Builder examples](./examples/builder/)** -- Modern async/await patterns with `ClientBuilder` (check, check_bulk, report, delete, streaming)
+- **[Vanilla examples](./examples/vanilla/)** -- Traditional callback patterns using raw gRPC stubs
+- **[RBAC examples](./examples/rbac/)** -- Workspace operations via REST API
 
-## Need Help?
+## Project Structure
 
-- Check the [GitHub Issues](https://github.com/project-kessel/kessel-sdk-node/issues)
-- Look at the [examples](./examples) directory
+```
+src/
+  kessel/
+    auth/           # OAuth2 client credentials, OIDC discovery
+    grpc/           # gRPC call credentials helper
+    inventory/      # ClientBuilder base + per-version wiring
+      v1/           # Health service
+      v1beta2/      # Primary inventory API (generated stubs + hand-written index)
+    rbac/           # REST workspace helpers, resource/subject factories
+  promisify.ts      # Proxy-based gRPC client promisification
+examples/           # Integration examples (require a live server)
+docs/               # Domain-specific guideline files
+```
+
+Most `.ts` files in the inventory directories are **auto-generated** from upstream protobuf definitions and should not be hand-edited. See [AGENTS.md](./AGENTS.md) for the full project structure and the distinction between generated and hand-written code.
 
 ## Development
 
-### Building
+### Commands
 
-```bash
-npm run build
-```
+| Command                  | Description                                      |
+| ------------------------ | ------------------------------------------------ |
+| `npm run build`          | Build CJS, ESM, and type declarations (parallel) |
+| `npm test`               | Run tests with Jest                              |
+| `npm run lint`           | Lint with ESLint (auto-fix)                      |
+| `npm run lint:check`     | Lint without auto-fix (CI)                       |
+| `npm run prettier`       | Format with Prettier (auto-fix)                  |
+| `npm run prettier:check` | Format check without auto-fix (CI)               |
 
-### Testing
+### CI
 
-```bash
-npm test
-```
-
-### Linting
-
-```bash
-npm run lint
-```
-
-### Type Checking
-
-```bash
-npm run type-check
-```
+CI runs on every push/PR to `main`, testing Node 20, 22, and 24. All checks must pass: lint, prettier, build, test.
 
 ## Release Instructions
 
@@ -164,6 +262,11 @@ Or manually:
 - Select the tag you just created
 - Add release notes describing the changes
 - Publish the release
+
+## Need Help?
+
+- Check the [GitHub Issues](https://github.com/project-kessel/kessel-sdk-node/issues)
+- Look at the [examples](./examples) directory
 
 ## License
 
