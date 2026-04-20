@@ -24,16 +24,27 @@ The `listWorkspaces` helper automatically paginates through all workspaces
 a subject can access. Continuation tokens are handled internally.
 
 ```typescript
-import { listWorkspaces, principalSubject } from "@project-kessel/kessel-sdk/kessel/rbac/v2";
+import {
+  listWorkspaces,
+  principalSubject,
+} from "@project-kessel/kessel-sdk/kessel/rbac/v2";
 
 // Lazy iteration (constant memory)
-for await (const response of listWorkspaces(client, principalSubject("alice", "redhat"), "viewer")) {
+for await (const response of listWorkspaces(
+  client,
+  principalSubject("alice", "redhat"),
+  "viewer",
+)) {
   console.log(response.object?.resourceId);
 }
 
 // Materialise into an array
 const all: StreamedListObjectsResponse[] = [];
-for await (const response of listWorkspaces(client, principalSubject("alice", "redhat"), "viewer")) {
+for await (const response of listWorkspaces(
+  client,
+  principalSubject("alice", "redhat"),
+  "viewer",
+)) {
   all.push(response);
 }
 ```
