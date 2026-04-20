@@ -28,6 +28,7 @@ import {
   listWorkspaces,
   principalSubject,
 } from "@project-kessel/kessel-sdk/kessel/rbac/v2";
+import type { StreamedListObjectsResponse } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/streamed_list_objects_response";
 
 // Lazy iteration (constant memory)
 for await (const response of listWorkspaces(
