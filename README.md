@@ -18,6 +18,28 @@ npm install @project-kessel/kessel-sdk
 
 The SDK supports OAuth 2.0 Client Credentials flow for authentication:
 
+## Listing Workspaces
+
+The `listWorkspaces` helper automatically paginates through all workspaces
+a subject can access. Continuation tokens are handled internally.
+
+```typescript
+import { listWorkspaces, principalSubject } from "@project-kessel/kessel-sdk/kessel/rbac/v2";
+
+// Lazy iteration (constant memory)
+for await (const response of listWorkspaces(client, principalSubject("alice", "redhat"), "viewer")) {
+  console.log(response.object?.resourceId);
+}
+
+// Materialise into an array
+const all: StreamedListObjectsResponse[] = [];
+for await (const response of listWorkspaces(client, principalSubject("alice", "redhat"), "viewer")) {
+  all.push(response);
+}
+```
+
+See [`examples/rbac/list_workspaces.ts`](./examples/rbac/list_workspaces.ts) for a complete working example.
+
 ## Examples
 
 Check out the [examples directory](./examples) for working code samples:
