@@ -115,11 +115,53 @@ new ClientBuilder(target)
 
 ## Examples
 
-Check out the [examples directory](./examples) for working code samples:
+Check out the [examples directory](./examples) for working code samples. Scripts are defined in [`examples/package.json`](./examples/package.json).
 
-- **[Builder examples](./examples/builder/)** -- Modern async/await patterns with `ClientBuilder` (check, check_bulk, report, delete, streaming)
-- **[Vanilla examples](./examples/vanilla/)** -- Traditional callback patterns using raw gRPC stubs
-- **[RBAC examples](./examples/rbac/)** -- Workspace operations via REST API
+- **[Builder examples](./examples/builder/)**: Modern async/await patterns with the client builder API
+- **[Vanilla examples](./examples/vanilla/)**: Traditional callback-style patterns
+- **[Authentication examples](./examples/builder/auth.ts)**: OAuth 2.0 client credentials setup and usage
+- **[Streaming examples](./examples/builder/streamed_list_objects.ts)**: Working with streaming APIs
+- **[RBAC examples](./examples/rbac/)**: Workspace listing and fetching
+- **[Console examples](./examples/console/)**: Red Hat identity principal helpers
+
+### Setup
+
+```bash
+cd examples
+npm install
+```
+
+### Running Examples
+
+```bash
+# Builder-style examples (async/await)
+npm run builder:check
+npm run builder:check_bulk
+npm run builder:check_for_update
+npm run builder:report_resource
+npm run builder:delete_resource
+npm run builder:streamed_list_objects
+npm run builder:auth
+
+# Vanilla examples (callback-style)
+npm run vanilla:check
+npm run vanilla:check_bulk
+npm run vanilla:check_for_update
+npm run vanilla:report_resource
+npm run vanilla:delete_resource
+npm run vanilla:streamed_list_objects
+npm run vanilla:promisify
+npm run vanilla:auth
+
+# RBAC examples
+npm run rbac:list_workspaces
+npm run rbac:fetch_workspace
+
+# Console examples
+npm run console:console_principal
+```
+
+> **Note:** If you've made changes to the SDK source, run `npm run build` in the root directory before running examples, as the examples reference the local build.
 
 ## Project Structure
 
@@ -216,6 +258,8 @@ npm test
 # Run linting
 npm run lint
 
+# Check formatting
+npm run prettier:check
 
 # Build the project
 npm run build

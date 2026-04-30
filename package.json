@@ -34,6 +34,11 @@
       "import": "./dist/esm/kessel/auth/*.js",
       "types": "./dist/types/kessel/auth/*.d.ts"
     },
+    "./kessel/console": {
+      "require": "./dist/cjs/kessel/console/index.js",
+      "import": "./dist/esm/kessel/console/index.js",
+      "types": "./dist/types/kessel/console/index.d.ts"
+    },
     "./kessel/rbac/v2": {
       "require": "./dist/cjs/kessel/rbac/v2.js",
       "import": "./dist/esm/kessel/rbac/v2.js",
@@ -68,7 +73,8 @@
     "prettier:base": "prettier src/** *.json ./*js README.md examples/** tsc-alias-replacers/**",
     "lint": "eslint --fix src examples",
     "lint:check": "eslint src examples",
-    "test": "jest"
+    "test": "jest",
+    "type-check": "tsc --noEmit"
   },
   "files": [
     "package.json",

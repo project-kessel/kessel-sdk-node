@@ -19,6 +19,7 @@
     "builder:auth": "tsx builder/auth.ts",
     "rbac:fetch_workspace": "tsx rbac/fetch_workspace.ts",
     "rbac:list_workspaces": "tsx rbac/list_workspaces.ts",
+    "console:console_principal": "tsx console/console_principal.ts",
     "postinstall": "tsx setup.ts"
   },
   "author": "Josejulio Martínez",
