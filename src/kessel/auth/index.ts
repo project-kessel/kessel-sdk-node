@@ -163,9 +163,7 @@ export class OAuth2ClientCredentials {
 
     if (this.pendingRefresh) {
       await this.pendingRefresh;
-      if (this.isCacheValid()) {
-        return this.tokenCache;
-      }
+      return this.tokenCache;
     }
 
     this.pendingRefresh = this.refresh();

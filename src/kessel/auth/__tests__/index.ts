@@ -585,6 +585,32 @@ describe("OAuth2ClientCredentials", () => {
       tokens.forEach((t) => expect(t.accessToken).toBe("second-token"));
       expect(callCount).toBe(2);
     });
+
+    it("cold-start with short-lived token triggers exactly 1 SSO call", async () => {
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
+
+      let callCount = 0;
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockImplementation(async () => {
+        callCount++;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return {};
+      });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "short-lived-token",
+        expires_in: 60,
+      });
+
+      const promises = Array.from({ length: 20 }, () =>
+        tokenRetriever.getToken(),
+      );
+      const tokens = await Promise.all(promises);
+
+      tokens.forEach((token) =>
+        expect(token.accessToken).toBe("short-lived-token"),
+      );
+      expect(callCount).toBe(1);
+    });
   });
 
   describe("Configuration Edge Cases", () => {
