@@ -439,6 +439,154 @@ describe("OAuth2ClientCredentials", () => {
     });
   });
 
+  describe("Thundering Herd", () => {
+    it("concurrent stale-token refreshes result in exactly 1 SSO call", async () => {
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
+
+      // Pre-seed a token inside the 300s early-refresh window
+      (tokenRetriever as any).tokenCache = {
+        accessToken: "stale-token",
+        expiresAt: new Date(Date.now() + 60000), // 60s remaining
+      };
+
+      let callCount = 0;
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockImplementation(async () => {
+        callCount++;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return {};
+      });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "refreshed-token",
+        expires_in: 3600,
+      });
+
+      const promises = Array.from({ length: 20 }, () =>
+        tokenRetriever.getToken(),
+      );
+      const tokens = await Promise.all(promises);
+
+      tokens.forEach((token) =>
+        expect(token.accessToken).toBe("refreshed-token"),
+      );
+      expect(callCount).toBe(1);
+    });
+
+    it("concurrent force-refresh calls result in exactly 1 SSO call", async () => {
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
+
+      // Pre-seed a valid token so force-refresh is the only trigger
+      (tokenRetriever as any).tokenCache = {
+        accessToken: "valid-token",
+        expiresAt: new Date(Date.now() + 3600000),
+      };
+
+      let callCount = 0;
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockImplementation(async () => {
+        callCount++;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return {};
+      });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "force-refreshed-token",
+        expires_in: 3600,
+      });
+
+      const promises = Array.from({ length: 20 }, () =>
+        tokenRetriever.getToken(true),
+      );
+      const tokens = await Promise.all(promises);
+
+      tokens.forEach((token) =>
+        expect(token.accessToken).toBe("force-refreshed-token"),
+      );
+      expect(callCount).toBe(1);
+    });
+
+    it("propagates refresh errors to all coalesced callers", async () => {
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
+
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        throw new Error("SSO unavailable");
+      });
+
+      const promises = Array.from({ length: 5 }, () =>
+        tokenRetriever.getToken(),
+      );
+      const results = await Promise.allSettled(promises);
+
+      const rejected = results.filter(
+        (r): r is PromiseRejectedResult => r.status === "rejected",
+      );
+      expect(rejected).toHaveLength(5);
+      rejected.forEach((r) => expect(r.reason.message).toBe("SSO unavailable"));
+
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it("allows retry after a failed coalesced refresh", async () => {
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
+
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest
+        .mockRejectedValueOnce(new Error("SSO unavailable"))
+        .mockResolvedValueOnce({});
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "retry-token",
+        expires_in: 3600,
+      });
+
+      await expect(tokenRetriever.getToken()).rejects.toThrow(
+        "SSO unavailable",
+      );
+
+      const token = await tokenRetriever.getToken();
+      expect(token.accessToken).toBe("retry-token");
+    });
+
+    it("refreshes again after a previous coalesced refresh expires", async () => {
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
+
+      let callCount = 0;
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockImplementation(async () => {
+        callCount++;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return {};
+      });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "first-token",
+        expires_in: 3600,
+      });
+
+      // First batch: cold start, should make 1 SSO call
+      const batch1 = Array.from({ length: 5 }, () => tokenRetriever.getToken());
+      await Promise.all(batch1);
+      expect(callCount).toBe(1);
+
+      // Expire the token
+      (tokenRetriever as any).tokenCache = {
+        accessToken: "first-token",
+        expiresAt: new Date(Date.now() - 1000),
+      };
+
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "second-token",
+        expires_in: 3600,
+      });
+
+      // Second batch: expired token, should make exactly 1 more SSO call
+      const batch2 = Array.from({ length: 5 }, () => tokenRetriever.getToken());
+      const tokens = await Promise.all(batch2);
+
+      tokens.forEach((t) => expect(t.accessToken).toBe("second-token"));
+      expect(callCount).toBe(2);
+    });
+  });
+
   describe("Configuration Edge Cases", () => {
     it("handles empty client ID", () => {
       const authWithEmptyClientId = {

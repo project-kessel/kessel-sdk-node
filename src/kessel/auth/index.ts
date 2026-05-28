@@ -84,6 +84,7 @@ export const fetchOIDCDiscovery = async (
  */
 export class OAuth2ClientCredentials {
   private tokenCache?: RefreshTokenResponse;
+  private pendingRefresh: Promise<Readonly<RefreshTokenResponse>> | null = null;
   private authServer: oauth.AuthorizationServer;
   private initialized: boolean = false;
   private ClientSecretPost: typeof oauth.ClientSecretPost;
@@ -145,6 +146,10 @@ export class OAuth2ClientCredentials {
    * 3. Fetch a new token from the OAuth server if needed
    * 4. Cache the new token for future use
    *
+   * Uses Promise coalescing to ensure concurrent callers that all observe a
+   * stale token coalesce into a single OAuth token request, preventing
+   * thundering herd floods against the SSO server.
+   *
    * @param forceRefresh - If true, bypasses cache and forces a new token request
    * @returns A promise that resolves to a RefreshTokenResponse object containing accessToken and expiresAt
    * @throws {Error} If token retrieval fails
@@ -156,8 +161,20 @@ export class OAuth2ClientCredentials {
       return this.tokenCache;
     }
 
-    this.tokenCache = await this.refresh();
-    return this.tokenCache;
+    if (this.pendingRefresh) {
+      await this.pendingRefresh;
+      if (this.isCacheValid()) {
+        return this.tokenCache;
+      }
+    }
+
+    this.pendingRefresh = this.refresh();
+    try {
+      this.tokenCache = await this.pendingRefresh;
+      return this.tokenCache;
+    } finally {
+      this.pendingRefresh = null;
+    }
   }
 
   private async refresh(): Promise<Readonly<RefreshTokenResponse>> {

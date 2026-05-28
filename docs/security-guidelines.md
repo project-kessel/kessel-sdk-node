@@ -22,6 +22,9 @@ The `oauth4webapi` package is listed under `optionalDependencies`. It is loaded 
 ### Token caching and expiration window
 `OAuth2ClientCredentials` caches tokens internally and considers them invalid 5 minutes before actual expiry (`EXPIRATION_WINDOW_MILLI = 300000`). When `expires_in` is missing from the OAuth response, it defaults to 1 hour (`DEFAULT_EXPIRE_IN_SECONDS = 3600`). The cached token response object is frozen with `Object.freeze`. Do not attempt to mutate it.
 
+### Concurrent refresh safety
+`getToken()` uses Promise coalescing to prevent thundering herd token refreshes. When multiple concurrent callers observe a stale token, only one OAuth request is made; the others await the same in-flight Promise. This is safe for both normal and `forceRefresh` calls. Errors from the single refresh propagate to all coalesced callers, and subsequent calls will retry normally.
+
 ### Force-refresh support
 Call `getToken(true)` to bypass the cache and force a fresh token. Use this only for error recovery (e.g., after a 401 from the server), not routinely.
 
