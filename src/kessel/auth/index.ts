@@ -161,9 +161,14 @@ export class OAuth2ClientCredentials {
       return this.tokenCache;
     }
 
-    if (this.pendingRefresh) {
-      await this.pendingRefresh;
-      return this.tokenCache;
+    while (this.pendingRefresh) {
+      try {
+        await this.pendingRefresh;
+        return this.tokenCache;
+      } catch {
+        // Another caller's refresh failed. Loop to either coalesce onto a
+        // new in-flight refresh or start our own.
+      }
     }
 
     this.pendingRefresh = this.refresh();

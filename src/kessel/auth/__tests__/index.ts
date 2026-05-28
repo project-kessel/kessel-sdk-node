@@ -504,7 +504,7 @@ describe("OAuth2ClientCredentials", () => {
       expect(callCount).toBe(1);
     });
 
-    it("propagates refresh errors to all coalesced callers", async () => {
+    it("waiters retry independently when coalesced refresh fails", async () => {
       const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
@@ -524,7 +524,44 @@ describe("OAuth2ClientCredentials", () => {
       expect(rejected).toHaveLength(5);
       rejected.forEach((r) => expect(r.reason.message).toBe("SSO unavailable"));
 
-      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
+      // Each waiter cascades a retry when the previous refresh fails
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(5);
+    });
+
+    it("waiter succeeds when coalesced refresh fails but retry works", async () => {
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
+
+      let callCount = 0;
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockImplementation(async () => {
+        callCount++;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        if (callCount === 1) {
+          throw new Error("SSO unavailable");
+        }
+        return {};
+      });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "recovered-token",
+        expires_in: 3600,
+      });
+
+      const promises = Array.from({ length: 5 }, () =>
+        tokenRetriever.getToken(),
+      );
+      const results = await Promise.allSettled(promises);
+
+      const rejected = results.filter((r) => r.status === "rejected");
+      const fulfilled = results.filter((r) => r.status === "fulfilled");
+
+      expect(rejected).toHaveLength(1);
+      expect(fulfilled).toHaveLength(4);
+      fulfilled.forEach((r) =>
+        expect((r as PromiseFulfilledResult<any>).value.accessToken).toBe(
+          "recovered-token",
+        ),
+      );
+      expect(callCount).toBe(2);
     });
 
     it("allows retry after a failed coalesced refresh", async () => {
