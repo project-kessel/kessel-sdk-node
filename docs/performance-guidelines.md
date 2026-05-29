@@ -37,7 +37,7 @@ Rules:
 - Do not call `getToken(true)` (force refresh) unless handling a 401/UNAUTHENTICATED error.
 - The `oauth4webapi` dependency is lazy-loaded via `import()` on first use, so construction is cheap.
 
-**Concurrent request hazard:** There is no deduplication of in-flight token refreshes. If the cache expires and 50 RPCs fire simultaneously, up to 50 token requests may hit the OAuth server. For high-concurrency services, consider wrapping `getToken()` or adding your own single-flight logic.
+**Concurrent refresh coalescing:** `getToken()` uses Promise coalescing (single-flight) to deduplicate in-flight token refreshes. If the cache expires and 50 RPCs fire simultaneously, only one token request is made to the OAuth server; the other 49 callers await the same in-flight Promise and receive the result when it resolves. This applies to both normal and `forceRefresh` calls. If the in-flight refresh fails, all coalesced callers receive the error and subsequent calls will retry.
 
 ## 4. Use Bulk APIs Instead of Parallel Individual Checks
 
