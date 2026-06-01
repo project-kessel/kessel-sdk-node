@@ -148,6 +148,32 @@ export const subject = (
 
 const DEFAULT_PAGE_LIMIT = 1000;
 
+/**
+ * Lists all workspaces that a subject has a specific relation to.
+ *
+ * This async generator wraps the `streamedListObjects` gRPC call and
+ * automatically handles continuation-token pagination across pages.
+ * Each page is fetched lazily as you consume the generator.
+ *
+ * @param inventory - The inventory service client with a `streamedListObjects` method.
+ * @param subject - The subject to check permissions for.
+ * @param relation - The relationship type (e.g. "member", "admin", "viewer").
+ * @param continuationToken - Optional token to resume listing from a previous position.
+ * @returns An async generator yielding `StreamedListObjectsResponse` objects.
+ *
+ * @example
+ * // Lazy iteration (constant memory)
+ * for await (const response of listWorkspaces(client, subject, "viewer")) {
+ *   console.log(response.object?.resourceId);
+ * }
+ *
+ * @example
+ * // Materialise into an array (eager, all results in memory)
+ * const all: StreamedListObjectsResponse[] = [];
+ * for await (const response of listWorkspaces(client, subject, "viewer")) {
+ *   all.push(response);
+ * }
+ */
 export async function* listWorkspaces(
   inventory: {
     streamedListObjects: (
