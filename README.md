@@ -232,7 +232,7 @@ Most `.ts` files in the inventory directories are **auto-generated** from upstre
 
 CI runs on every push/PR to `main`, testing Node 20, 22, and 24. All checks must pass: lint, prettier, build, test.
 
-## Releases
+## Release Instructions
 
 Releases are fully automated using [semantic-release](https://semantic-release.gitbook.io/). Every push to `main` triggers a workflow that analyzes commit messages, generates a changelog, and publishes to npm if warranted.
 
