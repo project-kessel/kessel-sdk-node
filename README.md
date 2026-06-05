@@ -232,114 +232,51 @@ Most `.ts` files in the inventory directories are **auto-generated** from upstre
 
 CI runs on every push/PR to `main`, testing Node 20, 22, and 24. All checks must pass: lint, prettier, build, test.
 
-## Release Instructions
+## Releases
 
-This section provides step-by-step instructions for maintainers to release a new version of the Kessel SDK for Node.js.
+Releases are fully automated using [semantic-release](https://semantic-release.gitbook.io/). Every push to `main` triggers a workflow that analyzes commit messages, generates a changelog, and publishes to npm if warranted.
 
-### Version Management
+### Commit Message Format
 
-This project follows [Semantic Versioning 2.0.0](https://semver.org/). Version numbers use the format `MAJOR.MINOR.PATCH`:
+Use [Conventional Commits](https://www.conventionalcommits.org/) to automatically trigger releases:
 
-- **MAJOR**: Increment for incompatible API changes
-- **MINOR**: Increment for backward-compatible functionality additions
-- **PATCH**: Increment for backward-compatible bug fixes
+```
+<type>(<scope>): <subject>
 
-**Note**: SDK versions across different languages (Ruby, Python, Go, etc.) do not need to be synchronized. Each language SDK can evolve independently based on its specific requirements and release schedule.
+<body>
 
-### Prerequisites for Release
-
-- Write access to the GitHub repository
-- npm account with publish access to the `@project-kessel/kessel-sdk` package
-- Ensure CI/CD tests are passing
-- Review and update CHANGELOG or release notes as needed
-- Node 20 or higher
-- [buf](https://github.com/bufbuild/buf) for protobuf/gRPC code generation:
-
-  ```bash
-  # On macOS
-  brew install bufbuild/buf/buf
-
-  # On Linux
-  curl -sSL "https://github.com/bufbuild/buf/releases/latest/download/buf-$(uname -s)-$(uname -m)" -o "/usr/local/bin/buf" && chmod +x "/usr/local/bin/buf"
-  ```
-
-### Release Process
-
-1. **Update the Version**
-
-Edit the `version` field in `package.json` to the new version number, following [Semantic Versioning](https://semver.org/) (see [Version Management](#version-management) above).
-
-Then set the `VERSION` env var from `package.json` for use in subsequent steps:
-
-```bash
-export VERSION=$(cat package.json | jq .version -r)
-echo "Releasing version: v${VERSION}"
+<footer>
 ```
 
-2. **Update Dependencies**
+**Types and version bumps:**
+- `feat:` → minor version (new feature)
+- `fix:` → patch version (bug fix)
+- `perf:` / `docs:` / `refactor:` → patch version
+- `BREAKING CHANGE:` in footer → major version
+
+**Examples:**
 
 ```bash
-# Update package-lock.json with any dependency changes
-npm install
+# Patch: 3.7.1 → 3.7.2
+git commit -m "fix: handle expired tokens in OAuth2 refresh flow"
+
+# Minor: 3.7.1 → 3.8.0
+git commit -m "feat: add support for bulk relationship queries"
+
+# Major: 3.7.1 → 4.0.0
+git commit -m "feat!: remove deprecated v1beta1 API
+
+BREAKING CHANGE: The v1beta1 API has been removed. Migrate to v1beta2."
 ```
 
-3. **Run Quality Checks**
+When you merge a PR with conventional commits to `main`, the release workflow:
+1. Runs quality checks (lint, test, build on Node 20/22/24)
+2. Determines the next version from commits
+3. Generates `CHANGELOG.md`
+4. Publishes to npm with provenance attestation
+5. Creates a GitHub release
 
-```bash
-# Run the full test suite
-npm test
-
-# Run linting
-npm run lint
-
-# Check formatting
-npm run prettier:check
-
-# Build the project
-npm run build
-```
-
-4. **Commit and Push Changes**
-
-```bash
-# Commit the version bump and any related changes
-export VERSION=$(cat package.json | jq .version -r)
-git add package.json package-lock.json
-git commit -m "chore: bump version to ${VERSION}"
-git push origin main # or git push upstream main
-```
-
-5. **Build and Publish the Package**
-
-```bash
-# Build the package
-npm run build
-
-# Publish to npm (requires npm account and package access)
-npm publish
-```
-
-6. **Tag the Release**
-
-```bash
-# Create and push a git tag
-git tag -a v${VERSION} -m "Release version ${VERSION}"
-git push origin v${VERSION} # or git push upstream v${VERSION}
-```
-
-7. **Create GitHub Release**
-
-```bash
-gh release create v${VERSION} --title "v${VERSION}" --generate-notes
-```
-
-Or manually:
-
-- Go to the [GitHub Releases page](https://github.com/project-kessel/kessel-sdk-node/releases)
-- Click "Create a new release"
-- Select the tag you just created
-- Add release notes describing the changes
-- Publish the release
+See [docs/RELEASE.md](./docs/RELEASE.md) for detailed setup instructions and troubleshooting.
 
 ## Need Help?
 
