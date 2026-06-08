@@ -82,18 +82,18 @@ jobs:
       id-token: write
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@v2
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 24
           cache: npm
@@ -119,8 +119,20 @@ jobs:
           NPM_CONFIG_PROVENANCE: true
         run: npx semantic-release
 
+      - name: Check for tarball
+        id: check-tarball
+        if: success()
+        run: |
+          if ls dist-tarball/*.tgz 1> /dev/null 2>&1; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "✅ Tarball found in dist-tarball/"
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  No tarball found (no release created)"
+          fi
+
       - name: Generate provenance attestation
-        if: success() && hashFiles('dist-tarball/*.tgz') != ''
+        if: success() && steps.check-tarball.outputs.found == 'true'
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
           subject-path: 'dist-tarball/*.tgz'

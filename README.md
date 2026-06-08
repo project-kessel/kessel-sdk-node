@@ -10,7 +10,7 @@ A TypeScript/JavaScript SDK for connecting to Kessel services using gRPC with a 
 - [Examples](#examples)
 - [Project Structure](#project-structure)
 - [Development](#development)
-- [Release Instructions](#release-instructions)
+- [Releases](#releases)
 - [License](#license)
 
 ## Installation
@@ -230,9 +230,9 @@ Most `.ts` files in the inventory directories are **auto-generated** from upstre
 
 ### CI
 
-CI runs on every push/PR to `main`, testing Node 20, 22, and 24. All checks must pass: lint, prettier, build, test.
+CI runs on every push/PR to `main`, testing Node 20, 22, and 24. All four checks must pass: lint, prettier, build, and test.
 
-## Release Instructions
+## Releases
 
 Releases are fully automated using [semantic-release](https://semantic-release.gitbook.io/). Every push to `main` triggers a workflow that analyzes commit messages, generates a changelog, and publishes to npm if warranted.
 
@@ -240,7 +240,7 @@ Releases are fully automated using [semantic-release](https://semantic-release.g
 
 Use [Conventional Commits](https://www.conventionalcommits.org/) to automatically trigger releases:
 
-```
+```text
 <type>(<scope>): <subject>
 
 <body>
@@ -249,6 +249,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/) to automaticall
 ```
 
 **Types and version bumps:**
+
 - `feat:` → minor version (new feature)
 - `fix:` → patch version (bug fix)
 - `perf:` / `docs:` / `refactor:` → patch version
@@ -270,13 +271,12 @@ BREAKING CHANGE: The v1beta1 API has been removed. Migrate to v1beta2."
 ```
 
 When you merge a PR with conventional commits to `main`, the release workflow:
-1. Runs quality checks (lint, test, build on Node 20/22/24)
+
+1. Runs quality checks (lint, prettier, build, and test on Node 20/22/24)
 2. Determines the next version from commits
 3. Generates `CHANGELOG.md`
 4. Publishes to npm with provenance attestation
 5. Creates a GitHub release
-
-See [docs/RELEASE.md](./docs/RELEASE.md) for detailed setup instructions and troubleshooting.
 
 ## Need Help?
 
