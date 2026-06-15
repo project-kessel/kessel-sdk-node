@@ -170,6 +170,12 @@ const DEFAULT_PAGE_LIMIT = 1000;
  * }
  *
  * @example
+ * // With consistency
+ * for await (const response of listWorkspaces(client, subject, "viewer", undefined, { minimizeLatency: true })) {
+ *   console.log(response.object?.resourceId);
+ * }
+ *
+ * @example
  * // Materialise into an array (eager, all results in memory)
  * const all: StreamedListObjectsResponse[] = [];
  * for await (const response of listWorkspaces(client, subject, "viewer")) {

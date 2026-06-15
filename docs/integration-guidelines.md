@@ -144,7 +144,14 @@ for await (const response of listWorkspaces(client, principalSubject("alice", "r
 }
 ```
 
-It uses `streamedListObjects` internally with page size 1000 and follows `continuationToken` until exhausted. Accepts an optional initial continuation token for resumption.
+It uses `streamedListObjects` internally with page size 1000 and follows `continuationToken` until exhausted. Accepts an optional initial continuation token for resumption and an optional `Consistency` object to control read freshness:
+
+```typescript
+// With consistency
+for await (const response of listWorkspaces(client, subject, "viewer", undefined, { minimizeLatency: true })) {
+  console.log(response.object?.resourceId);
+}
+```
 
 ## Streaming Responses
 
