@@ -15,6 +15,8 @@ import "dotenv/config";
       client,
       principalSubject("alice", "redhat"),
       "view_document",
+      undefined,
+      { minimizeLatency: true },
     )) {
       console.log(`Workspace: ${response.object?.resourceId}`);
     }
@@ -26,6 +28,8 @@ import "dotenv/config";
       client,
       principalSubject("alice", "redhat"),
       "view_document",
+      undefined,
+      { minimizeLatency: true },
     )) {
       allWorkspaces.push(response);
     }

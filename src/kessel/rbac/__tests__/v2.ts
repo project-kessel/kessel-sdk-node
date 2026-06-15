@@ -773,4 +773,89 @@ describe("listWorkspaces", () => {
       expect(client.streamedListObjects).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe("consistency", () => {
+    it("passes consistency token to the request", async () => {
+      const consistency = { minimizeLatency: true };
+      const client = createMockInventoryClient(async function* () {
+        yield {
+          object: workspaceResource("workspace-1"),
+          pagination: { continuationToken: "" },
+        };
+      });
+
+      const results: StreamedListObjectsResponse[] = [];
+      for await (const response of listWorkspaces(
+        client,
+        testSubject,
+        "member",
+        undefined,
+        consistency,
+      )) {
+        results.push(response);
+      }
+
+      expect(client.streamedListObjects).toHaveBeenCalledTimes(1);
+      const capturedRequest = client.requests[0];
+      expect(capturedRequest.consistency).toEqual(consistency);
+    });
+
+    it("does not set consistency when undefined", async () => {
+      const client = createMockInventoryClient(async function* () {
+        yield {
+          object: workspaceResource("workspace-1"),
+          pagination: { continuationToken: "" },
+        };
+      });
+
+      const results: StreamedListObjectsResponse[] = [];
+      for await (const response of listWorkspaces(
+        client,
+        testSubject,
+        "member",
+      )) {
+        results.push(response);
+      }
+
+      expect(client.streamedListObjects).toHaveBeenCalledTimes(1);
+      const capturedRequest = client.requests[0];
+      expect(capturedRequest.consistency).toBeUndefined();
+    });
+
+    it("preserves consistency across paginated requests", async () => {
+      const consistency = { minimizeLatency: true };
+      let count = 0;
+      const client = createMockInventoryClient(async function* () {
+        count++;
+        if (count === 1) {
+          yield {
+            object: workspaceResource("workspace-1"),
+            pagination: { continuationToken: "next-page-token" },
+          };
+        } else if (count === 2) {
+          yield {
+            object: workspaceResource("workspace-2"),
+            pagination: { continuationToken: "" },
+          };
+        }
+      });
+
+      const results: StreamedListObjectsResponse[] = [];
+      for await (const response of listWorkspaces(
+        client,
+        testSubject,
+        "member",
+        undefined,
+        consistency,
+      )) {
+        results.push(response);
+      }
+
+      expect(client.streamedListObjects).toHaveBeenCalledTimes(2);
+      const requests = client.requests;
+
+      expect(requests[0].consistency).toEqual(consistency);
+      expect(requests[1].consistency).toEqual(consistency);
+    });
+  });
 });

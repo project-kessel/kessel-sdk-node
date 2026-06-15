@@ -5,6 +5,7 @@ import { RepresentationType } from "../inventory/v1beta2/representation_type";
 import { ReporterReference } from "../inventory/v1beta2/reporter_reference";
 import { StreamedListObjectsRequest } from "../inventory/v1beta2/streamed_list_objects_request";
 import { StreamedListObjectsResponse } from "../inventory/v1beta2/streamed_list_objects_response";
+import { Consistency } from "../inventory/v1beta2/consistency";
 
 const WORKSPACE_ENDPOINT = "/api/rbac/v2/workspaces/";
 
@@ -159,6 +160,7 @@ const DEFAULT_PAGE_LIMIT = 1000;
  * @param subject - The subject to check permissions for.
  * @param relation - The relationship type (e.g. "member", "admin", "viewer").
  * @param continuationToken - Optional token to resume listing from a previous position.
+ * @param consistency - Optional consistency level for the request.
  * @returns An async generator yielding `StreamedListObjectsResponse` objects.
  *
  * @example
@@ -183,6 +185,7 @@ export async function* listWorkspaces(
   subject: SubjectReference,
   relation: string,
   continuationToken?: string,
+  consistency?: Consistency,
 ): AsyncGenerator<StreamedListObjectsResponse> {
   while (true) {
     const request: StreamedListObjectsRequest = {
@@ -193,6 +196,7 @@ export async function* listWorkspaces(
         limit: DEFAULT_PAGE_LIMIT,
         continuationToken: continuationToken,
       },
+      consistency,
     };
 
     const stream = inventory.streamedListObjects(request);
