@@ -27,7 +27,10 @@ import "dotenv/config";
       client,
       principalSubject("alice", "redhat"),
       "view_document",
-      { continuationToken: "foobar_token", consistency: { minimizeLatency: true } },
+      {
+        continuationToken: "foobar_token",
+        consistency: { minimizeLatency: true },
+      },
     )) {
       allWorkspaces.push(response);
     }
