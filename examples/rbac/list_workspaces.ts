@@ -15,7 +15,6 @@ import "dotenv/config";
       client,
       principalSubject("alice", "redhat"),
       "view_document",
-      "foobar_token",
     )) {
       console.log(`Workspace: ${response.object?.resourceId}`);
     }
@@ -27,10 +26,7 @@ import "dotenv/config";
       client,
       principalSubject("alice", "redhat"),
       "view_document",
-      {
-        continuationToken: "foobar_token",
-        consistency: { minimizeLatency: true },
-      },
+      { consistency: { minimizeLatency: true } },
     )) {
       allWorkspaces.push(response);
     }
