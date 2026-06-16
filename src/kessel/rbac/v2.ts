@@ -5,6 +5,7 @@ import { RepresentationType } from "../inventory/v1beta2/representation_type";
 import { ReporterReference } from "../inventory/v1beta2/reporter_reference";
 import { StreamedListObjectsRequest } from "../inventory/v1beta2/streamed_list_objects_request";
 import { StreamedListObjectsResponse } from "../inventory/v1beta2/streamed_list_objects_response";
+import { Consistency } from "../inventory/v1beta2/consistency";
 
 const WORKSPACE_ENDPOINT = "/api/rbac/v2/workspaces/";
 
@@ -148,6 +149,11 @@ export const subject = (
 
 const DEFAULT_PAGE_LIMIT = 1000;
 
+export interface ListWorkspacesOptions {
+  continuationToken?: string;
+  consistency?: Consistency;
+}
+
 /**
  * Lists all workspaces that a subject has a specific relation to.
  *
@@ -158,12 +164,18 @@ const DEFAULT_PAGE_LIMIT = 1000;
  * @param inventory - The inventory service client with a `streamedListObjects` method.
  * @param subject - The subject to check permissions for.
  * @param relation - The relationship type (e.g. "member", "admin", "viewer").
- * @param continuationToken - Optional token to resume listing from a previous position.
+ * @param continuationTokenOrOptions - Optional continuation token string or an options object with `continuationToken` and/or `consistency`.
  * @returns An async generator yielding `StreamedListObjectsResponse` objects.
  *
  * @example
  * // Lazy iteration (constant memory)
  * for await (const response of listWorkspaces(client, subject, "viewer")) {
+ *   console.log(response.object?.resourceId);
+ * }
+ *
+ * @example
+ * // With consistency
+ * for await (const response of listWorkspaces(client, subject, "viewer", { consistency: { minimizeLatency: true } })) {
  *   console.log(response.object?.resourceId);
  * }
  *
@@ -182,8 +194,15 @@ export async function* listWorkspaces(
   },
   subject: SubjectReference,
   relation: string,
-  continuationToken?: string,
+  continuationTokenOrOptions?: string | ListWorkspacesOptions,
 ): AsyncGenerator<StreamedListObjectsResponse> {
+  const options =
+    typeof continuationTokenOrOptions === "string"
+      ? { continuationToken: continuationTokenOrOptions }
+      : (continuationTokenOrOptions ?? {});
+  let { continuationToken } = options;
+  const { consistency } = options;
+
   while (true) {
     const request: StreamedListObjectsRequest = {
       objectType: workspaceType(),
@@ -193,6 +212,7 @@ export async function* listWorkspaces(
         limit: DEFAULT_PAGE_LIMIT,
         continuationToken: continuationToken,
       },
+      consistency,
     };
 
     const stream = inventory.streamedListObjects(request);

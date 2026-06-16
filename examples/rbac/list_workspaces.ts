@@ -26,6 +26,7 @@ import "dotenv/config";
       client,
       principalSubject("alice", "redhat"),
       "view_document",
+      { consistency: { minimizeLatency: true } },
     )) {
       allWorkspaces.push(response);
     }

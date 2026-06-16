@@ -73,6 +73,7 @@ for await (const response of stream) {
 For paginated iteration, use the `listWorkspaces` helper from `kessel/rbac/v2` as a reference pattern. It uses `continuationToken` from each response to issue subsequent streamed requests, with a default page limit of 1000. Key points:
 - Stop iterating when `continuationToken` is empty or the stream yields no responses.
 - Each page is a separate gRPC stream call; the helper manages this automatically.
+- Pass an optional `Consistency` object via the options parameter to control read freshness (e.g. `{ consistency: { minimizeLatency: true } }`).
 
 ## 6. Choose the Right Consistency Level
 
