@@ -134,6 +134,16 @@ for await (const response of listWorkspaces(
   console.log(response.object?.resourceId);
 }
 
+// With consistency
+for await (const response of listWorkspaces(
+  client,
+  principalSubject("alice", "redhat"),
+  "viewer",
+  { consistency: { minimizeLatency: true } },
+)) {
+  console.log(response.object?.resourceId);
+}
+
 // Materialise into an array
 const all: StreamedListObjectsResponse[] = [];
 for await (const response of listWorkspaces(

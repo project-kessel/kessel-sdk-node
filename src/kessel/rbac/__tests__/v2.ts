@@ -775,7 +775,7 @@ describe("listWorkspaces", () => {
   });
 
   describe("consistency", () => {
-    it("passes consistency token to the request", async () => {
+    it("passes consistency via options object", async () => {
       const consistency = { minimizeLatency: true };
       const client = createMockInventoryClient(async function* () {
         yield {
@@ -789,8 +789,7 @@ describe("listWorkspaces", () => {
         client,
         testSubject,
         "member",
-        undefined,
-        consistency,
+        { consistency },
       )) {
         results.push(response);
       }
@@ -845,8 +844,7 @@ describe("listWorkspaces", () => {
         client,
         testSubject,
         "member",
-        undefined,
-        consistency,
+        { consistency },
       )) {
         results.push(response);
       }
@@ -856,6 +854,60 @@ describe("listWorkspaces", () => {
 
       expect(requests[0].consistency).toEqual(consistency);
       expect(requests[1].consistency).toEqual(consistency);
+    });
+
+    it("accepts both continuationToken and consistency in options", async () => {
+      const consistency = { minimizeLatency: true };
+      const client = createMockInventoryClient(async function* () {
+        yield {
+          object: workspaceResource("workspace-1"),
+          pagination: { continuationToken: "" },
+        };
+      });
+
+      const results: StreamedListObjectsResponse[] = [];
+      for await (const response of listWorkspaces(
+        client,
+        testSubject,
+        "member",
+        { continuationToken: "resume-token", consistency: consistency },
+      )) {
+        results.push(response);
+      }
+
+      expect(client.streamedListObjects).toHaveBeenCalledTimes(1);
+      const capturedRequest = client.requests[0];
+      expect(capturedRequest.pagination?.continuationToken).toBe(
+        "resume-token",
+      );
+      expect(capturedRequest.consistency).toEqual(consistency);
+    });
+  });
+
+  describe("backward compatibility", () => {
+    it("accepts a plain string as continuation token", async () => {
+      const client = createMockInventoryClient(async function* () {
+        yield {
+          object: workspaceResource("workspace-1"),
+          pagination: { continuationToken: "" },
+        };
+      });
+
+      const results: StreamedListObjectsResponse[] = [];
+      for await (const response of listWorkspaces(
+        client,
+        testSubject,
+        "member",
+        "legacy-token",
+      )) {
+        results.push(response);
+      }
+
+      expect(client.streamedListObjects).toHaveBeenCalledTimes(1);
+      const capturedRequest = client.requests[0];
+      expect(capturedRequest.pagination?.continuationToken).toBe(
+        "legacy-token",
+      );
     });
   });
 });
