@@ -5,6 +5,7 @@ Rules for working in `src/kessel/auth/` -- OAuth2 client credentials, OIDC disco
 ## Module Overview
 
 This module provides:
+
 - `fetchOIDCDiscovery()` -- OIDC well-known endpoint discovery
 - `OAuth2ClientCredentials` -- token retrieval, caching, and auto-refresh
 - `oauth2AuthRequest()` -- wraps OAuth credentials for HTTP `fetch()` calls
@@ -30,6 +31,7 @@ All code is hand-written (not generated). The single source file is `index.ts`.
 ## Thundering Herd / Promise Coalescing
 
 `getToken()` uses `this.pendingRefresh` to deduplicate concurrent token requests. If N callers hit `getToken()` while the cache is stale:
+
 - The first caller starts the refresh and stores its Promise in `pendingRefresh`.
 - Subsequent callers loop on `pendingRefresh`, awaiting the in-flight result.
 - On success, all callers get the same cached token.
@@ -61,7 +63,7 @@ Tests are in `__tests__/index.ts`. Key patterns:
 
 - Mock `oauth4webapi` at the module level with a plain object of `jest.fn()` calls:
   ```typescript
-  const mockOAuth = { discoveryRequest: jest.fn(), /* ... */ };
+  const mockOAuth = { discoveryRequest: jest.fn() /* ... */ };
   jest.mock("oauth4webapi", () => mockOAuth);
   ```
 - Access private state via `(instance as any).tokenCache = { ... }` for cache setup.

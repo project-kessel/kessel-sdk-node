@@ -4,7 +4,7 @@ Rules for working in `src/kessel/inventory/` -- the `ClientBuilder` base class, 
 
 ## Directory Structure
 
-```
+```text
 inventory/
   index.ts          # Hand-written. ClientBuilder abstract class + clientBuilderForStub() factory
   v1/
@@ -28,6 +28,7 @@ The only hand-written files in version directories are `index.ts` files.
 ## ClientBuilder Pattern
 
 `index.ts` (this directory's root) exports:
+
 - `ClientBuilder<T>` -- abstract class with fluent auth methods
 - `clientBuilderForStub()` -- factory that creates a concrete builder from a generated service client class
 
@@ -54,12 +55,12 @@ export const ClientBuilder = clientBuilderForStub(KesselInventoryServiceClient);
 
 ## Builder Authentication Methods
 
-| Method | Channel | Call Creds | Usage |
-|---|---|---|---|
-| `.insecure()` | Insecure | None | Local dev only |
-| `.unauthenticated(channelCreds?)` | SSL (default) | None | TLS without auth |
-| `.oauth2ClientAuthenticated(auth, channelCreds?)` | SSL (default) | OAuth2 | Production |
-| `.authenticated(callCreds?, channelCreds?)` | SSL (default) | Custom | Custom auth |
+| Method                                            | Channel       | Call Creds | Usage            |
+| ------------------------------------------------- | ------------- | ---------- | ---------------- |
+| `.insecure()`                                     | Insecure      | None       | Local dev only   |
+| `.unauthenticated(channelCreds?)`                 | SSL (default) | None       | TLS without auth |
+| `.oauth2ClientAuthenticated(auth, channelCreds?)` | SSL (default) | OAuth2     | Production       |
+| `.authenticated(callCreds?, channelCreds?)`       | SSL (default) | Custom     | Custom auth      |
 
 - Default (no method called): uses `credentials.createSsl()`.
 - Last auth method called wins -- they are not additive.
@@ -78,6 +79,7 @@ export const ClientBuilder = clientBuilderForStub(KesselInventoryServiceClient);
 ## Testing Conventions
 
 Tests are in `v1beta2/__tests__/index.ts`. They do NOT start a real gRPC server. They verify:
+
 - Builder construction and method presence (`typeof client.method === "function"`)
 - Fluent API chaining returns without throwing
 - Credential validation throws on invalid combinations
@@ -87,6 +89,7 @@ Tests are in `v1beta2/__tests__/index.ts`. They do NOT start a real gRPC server.
 ## Package Exports
 
 When adding new public modules, update `package.json` `exports` with:
+
 - A named entry with `require`, `import`, and `types` conditions
 - A wildcard entry for deep imports (e.g., `./kessel/inventory/v1/*`)
 

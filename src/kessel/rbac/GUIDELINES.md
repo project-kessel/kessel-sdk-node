@@ -5,6 +5,7 @@ Rules for working in `src/kessel/rbac/` -- REST workspace helpers, resource/subj
 ## Module Overview
 
 `v2.ts` is entirely hand-written. It provides:
+
 - `fetchDefaultWorkspace()` / `fetchRootWorkspace()` -- REST calls to the RBAC v2 API
 - Resource/subject factory functions for the Kessel authorization model
 - `listWorkspaces()` -- async generator for paginated workspace listing via gRPC streaming
@@ -34,15 +35,15 @@ The `auth?: AuthRequest` parameter is optional. When provided, `auth.configureRe
 
 All RBAC resources use `reporter.type: "rbac"`. The factories enforce this:
 
-| Function | Returns | Resource ID format |
-|---|---|---|
-| `principalResource(id, domain)` | `ResourceReference` | `${domain}/${id}` |
-| `principalSubject(id, domain)` | `SubjectReference` | wraps `principalResource` |
-| `workspaceResource(id)` | `ResourceReference` | plain `id` |
-| `roleResource(id)` | `ResourceReference` | plain `id` |
-| `subject(resource, relation?)` | `SubjectReference` | from any `ResourceReference` |
-| `workspaceType()` | `RepresentationType` | -- |
-| `roleType()` | `RepresentationType` | -- |
+| Function                        | Returns              | Resource ID format           |
+| ------------------------------- | -------------------- | ---------------------------- |
+| `principalResource(id, domain)` | `ResourceReference`  | `${domain}/${id}`            |
+| `principalSubject(id, domain)`  | `SubjectReference`   | wraps `principalResource`    |
+| `workspaceResource(id)`         | `ResourceReference`  | plain `id`                   |
+| `roleResource(id)`              | `ResourceReference`  | plain `id`                   |
+| `subject(resource, relation?)`  | `SubjectReference`   | from any `ResourceReference` |
+| `workspaceType()`               | `RepresentationType` | --                           |
+| `roleType()`                    | `RepresentationType` | --                           |
 
 The `principalResource` ID format `${domain}/${id}` is required by the Kessel authorization model. Do not change the separator or ordering.
 
@@ -51,6 +52,7 @@ The `principalResource` ID format `${domain}/${id}` is required by the Kessel au
 ### Pagination pattern
 
 `listWorkspaces()` wraps `streamedListObjects` and handles continuation-token pagination:
+
 1. Sends a request with `pagination.limit = DEFAULT_PAGE_LIMIT` (1000)
 2. Yields each `StreamedListObjectsResponse` from the stream
 3. Captures `continuationToken` from each response's pagination field
@@ -60,6 +62,7 @@ The `principalResource` ID format `${domain}/${id}` is required by the Kessel au
 ### Fourth parameter overloading
 
 The fourth parameter accepts either:
+
 - A plain `string` (continuation token) -- for backward compatibility
 - A `ListWorkspacesOptions` object with `continuationToken` and/or `consistency`
 
@@ -72,11 +75,14 @@ When `consistency` is provided via options, it is passed on every paginated requ
 ### Typed client interface
 
 `listWorkspaces` accepts a minimal interface, not a full client:
+
 ```typescript
 inventory: {
-  streamedListObjects: (request: StreamedListObjectsRequest) => AsyncIterable<StreamedListObjectsResponse>;
+  streamedListObjects: (request: StreamedListObjectsRequest) =>
+    AsyncIterable<StreamedListObjectsResponse>;
 }
 ```
+
 This makes it testable with mock objects.
 
 ## Imports

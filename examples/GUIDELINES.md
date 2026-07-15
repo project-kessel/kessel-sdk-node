@@ -8,12 +8,12 @@ Examples are standalone runnable scripts that demonstrate SDK usage against a li
 
 ## Directory Layout
 
-| Subdirectory | Purpose | Import style |
-|---|---|---|
-| `builder/` | `ClientBuilder` + `buildAsync()` (Promise-based) | Package subpath imports |
-| `vanilla/` | Raw gRPC stubs with callbacks | Package subpath imports |
-| `rbac/` | RBAC workspace REST helpers | Mixed (some use relative source imports) |
-| `console/` | Console identity helpers | Package subpath imports |
+| Subdirectory | Purpose                                          | Import style                             |
+| ------------ | ------------------------------------------------ | ---------------------------------------- |
+| `builder/`   | `ClientBuilder` + `buildAsync()` (Promise-based) | Package subpath imports                  |
+| `vanilla/`   | Raw gRPC stubs with callbacks                    | Package subpath imports                  |
+| `rbac/`      | RBAC workspace REST helpers                      | Mixed (some use relative source imports) |
+| `console/`   | Console identity helpers                         | Package subpath imports                  |
 
 ## File Naming
 
@@ -22,6 +22,7 @@ Use `snake_case.ts` matching the API operation: `check.ts`, `report_resource.ts`
 ## Script Structure Pattern
 
 Most examples that interact with a Kessel server follow this structure:
+
 1. Imports (package subpath imports + `"dotenv/config"`)
 2. Data setup (construct request objects, references)
 3. Client construction (via `ClientBuilder` or raw stub)
@@ -59,12 +60,12 @@ const client = new ClientBuilder(process.env.KESSEL_ENDPOINT!)
 
 Most examples read configuration from `.env` (loaded via `dotenv/config`). Required variables are defined in `.env.sample`:
 
-| Variable | Purpose | Example |
-|---|---|---|
-| `KESSEL_ENDPOINT` | gRPC target host:port | `localhost:9000` |
-| `AUTH_CLIENT_ID` | OAuth client ID | -- |
-| `AUTH_CLIENT_SECRET` | OAuth client secret | -- |
-| `AUTH_DISCOVERY_ISSUER_URL` | OIDC issuer URL | `https://sso.server/auth/realms/the-realm` |
+| Variable                    | Purpose               | Example                                    |
+| --------------------------- | --------------------- | ------------------------------------------ |
+| `KESSEL_ENDPOINT`           | gRPC target host:port | `localhost:9000`                           |
+| `AUTH_CLIENT_ID`            | OAuth client ID       | --                                         |
+| `AUTH_CLIENT_SECRET`        | OAuth client secret   | --                                         |
+| `AUTH_DISCOVERY_ISSUER_URL` | OIDC issuer URL       | `https://sso.server/auth/realms/the-realm` |
 
 - The `postinstall` script (`setup.ts`) copies `.env.sample` to `.env` if `.env` does not exist.
 - `.env` is gitignored. Never commit it.
@@ -94,6 +95,7 @@ When an operation supports both styles, add examples to both `builder/` and `van
 ## Auth Examples
 
 `builder/auth.ts` and `vanilla/auth.ts` demonstrate the full OAuth2 flow:
+
 1. OIDC discovery via `fetchOIDCDiscovery()`
 2. `OAuth2ClientCredentials` construction
 3. Client construction with OAuth credentials
@@ -103,6 +105,7 @@ Builder auth uses `.oauth2ClientAuthenticated(auth)`. Vanilla auth uses `credent
 ## Separate Package
 
 Examples have their own `package.json` with:
+
 - `@project-kessel/kessel-sdk: "file://.."` -- references the local SDK build
 - `dotenv` and `tsx` as dependencies
 - Private: true (not publishable)

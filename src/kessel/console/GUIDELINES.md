@@ -5,6 +5,7 @@ Rules for working in `src/kessel/console/` -- Red Hat identity header parsing an
 ## Module Overview
 
 `index.ts` is entirely hand-written. It provides two functions:
+
 - `principalFromRHIdentity(identity, domain?)` -- extracts a `SubjectReference` from a parsed identity object
 - `principalFromRHIdentityHeader(header, domain?)` -- decodes a base64-encoded `x-rh-identity` header and extracts the principal
 
@@ -14,12 +15,13 @@ Both return a `SubjectReference` via `principalSubject()` from the RBAC module.
 
 The `IDENTITY_TYPE_FIELDS` map defines which identity types are supported and where to find the user ID:
 
-| Identity Type | Field | User ID path |
-|---|---|---|
-| `User` | `user` | `identity.user.user_id` |
+| Identity Type    | Field             | User ID path                       |
+| ---------------- | ----------------- | ---------------------------------- |
+| `User`           | `user`            | `identity.user.user_id`            |
 | `ServiceAccount` | `service_account` | `identity.service_account.user_id` |
 
 Adding a new identity type requires:
+
 1. Adding an entry to `IDENTITY_TYPE_FIELDS`
 2. Adding test cases for the new type (success, missing field, missing user_id)
 
@@ -30,6 +32,7 @@ The default domain is `"redhat"` (constant `DEFAULT_DOMAIN`). The domain is pass
 ## Header Decoding Pipeline
 
 `principalFromRHIdentityHeader` follows this pipeline:
+
 1. Base64-decode the header string via `Buffer.from(header, "base64").toString("utf-8")`
 2. JSON-parse the decoded string
 3. Extract the `identity` key from the envelope
@@ -40,6 +43,7 @@ Each step has a distinct error message for debuggability.
 ## Error Messages
 
 The module throws descriptive `Error` messages at each validation step:
+
 - `"identity must be an object"` -- null, undefined, or non-object identity
 - `"Unsupported identity type: \"X\" (supported: Y, Z)"` -- type not in `IDENTITY_TYPE_FIELDS`
 - `"Identity type \"X\" is missing the \"Y\" field"` -- details field is null or not an object
@@ -53,6 +57,7 @@ Preserve these exact messages -- tests match against them with regex patterns.
 ## Dependencies
 
 This module depends on:
+
 - `../inventory/v1beta2/subject_reference` -- for the `SubjectReference` type
 - `../rbac/v2` -- for the `principalSubject()` factory function
 
@@ -67,7 +72,7 @@ Tests are in `__tests__/index.ts`. Key patterns:
 - Test every error path -- unsupported type, missing field, missing user_id, null identity, malformed base64
 - Test realistic header payloads (with `account_number`, `org_id`, `username`, `is_internal`, etc.)
 - Verify the full `SubjectReference` shape: `resource.resourceType`, `resource.resourceId`, `resource.reporter.type`, and `relation`
-- Import from `".."`  (parent index.ts), not from the package path
+- Import from `".."` (parent index.ts), not from the package path
 
 ## Do Not
 
