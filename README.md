@@ -99,7 +99,7 @@ const client = new ClientBuilder("kessel.example.com:443")
   .buildAsync();
 ```
 
-Requires the `oauth4webapi` optional dependency. See [docs/security-guidelines.md](./docs/security-guidelines.md) for details on credential handling and TLS.
+Requires the `oauth4webapi` optional dependency. See the [auth GUIDELINES.md](./src/kessel/auth/GUIDELINES.md) for details on credential handling and TLS.
 
 ### Custom / Unauthenticated
 
@@ -220,10 +220,9 @@ src/
     rbac/           # REST workspace helpers, resource/subject factories
   promisify.ts      # Proxy-based gRPC client promisification
 examples/           # Integration examples (require a live server)
-docs/               # Domain-specific guideline files
 ```
 
-Most `.ts` files in the inventory directories are **auto-generated** from upstream protobuf definitions and should not be hand-edited. See [AGENTS.md](./AGENTS.md) for the full project structure and the distinction between generated and hand-written code.
+Most `.ts` files in the inventory directories are **auto-generated** from upstream protobuf definitions and should not be hand-edited. See [AGENTS.md](./AGENTS.md) for the full project structure, the distinction between generated and hand-written code, and directory-local `GUIDELINES.md` files for detailed conventions.
 
 ## Development
 

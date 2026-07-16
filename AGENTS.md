@@ -2,16 +2,15 @@
 
 Agent onboarding guide for the `@project-kessel/kessel-sdk` Node.js SDK. This file is the entry point for any AI agent (Claude, Cursor, CodeRabbit, etc.) working in this repository.
 
-## Domain Guideline Index
+## Guidelines Index
 
-These files contain detailed, domain-specific rules. Read them before making changes in their area.
+Directory-local GUIDELINES.md files contain detailed, domain-specific rules. Read the relevant file before making changes in that area.
 
-- `docs/security-guidelines.md` -- OAuth, TLS, credentials, authorization patterns
-- `docs/error-handling-guidelines.md` -- gRPC, HTTP, auth error handling conventions
-- `docs/api-contracts-guidelines.md` -- Protobuf generation, versioning, exports
-- `docs/testing-guidelines.md` -- Jest, mocking, test structure conventions
-- `docs/performance-guidelines.md` -- Client reuse, caching, bulk/streaming APIs
-- `docs/integration-guidelines.md` -- Import paths, client construction, auth modes
+- `src/kessel/auth/GUIDELINES.md` -- OAuth2 credentials, OIDC discovery, token caching, AuthRequest
+- `src/kessel/inventory/GUIDELINES.md` -- ClientBuilder, per-version wiring, generated vs hand-written code
+- `src/kessel/rbac/GUIDELINES.md` -- REST workspace helpers, resource/subject factories, paginated streaming
+- `src/kessel/console/GUIDELINES.md` -- Red Hat identity header parsing, principal extraction
+- `examples/GUIDELINES.md` -- Runnable integration examples, file naming, script registration
 
 ## What This Repository Is
 
@@ -22,6 +21,7 @@ The SDK provides:
 - A fluent `ClientBuilder` pattern for client construction
 - OAuth 2.0 Client Credentials authentication (via optional `oauth4webapi` dependency)
 - RBAC workspace REST helpers
+- Console identity header parsing and principal extraction
 - A `promisifyClient` utility that converts callback-based gRPC clients to Promise-based
 
 Published as `@project-kessel/kessel-sdk` on npm. Requires Node >= 20.
@@ -32,6 +32,8 @@ Published as `@project-kessel/kessel-sdk` on npm. Requires Node >= 20.
 src/
   kessel/
     auth/               # Hand-written. OAuth2 client credentials, OIDC discovery
+      __tests__/
+    console/            # Hand-written. Red Hat identity header parsing
       __tests__/
     grpc/               # Hand-written. gRPC call credentials helper
       __tests__/
@@ -51,11 +53,11 @@ examples/               # Integration examples (NOT automated tests). Require li
   builder/              # Examples using ClientBuilder + buildAsync()
   vanilla/              # Examples using raw gRPC stubs + callbacks
   rbac/                 # Examples for RBAC workspace operations
+  console/              # Examples for console identity helpers
 dist/                   # Build output (gitignored contents, committed structure)
   cjs/                  # CommonJS build
   esm/                  # ES module build
   types/                # TypeScript declarations
-docs/                   # Domain-specific guideline files
 tsc-alias-replacers/    # ESM import path fixer for protobufjs/minimal
 ```
 
@@ -71,10 +73,20 @@ This is the most important architectural distinction in the repo.
 - Regenerated automatically every 6 hours via `.github/workflows/buf-generate.yml` from upstream protos at `buf.build/project-kessel/inventory-api`
 - To regenerate manually: `buf generate && npm run prettier`
 
+**ts-proto generation options** (in `buf.gen.yaml`):
+- `outputServices=grpc-js` -- generates `@grpc/grpc-js`-compatible client/server stubs
+- `outputServices=generic-definitions` -- emits `*Definition` objects for generic service metadata
+- `useOptionals=all` -- every protobuf field becomes `field?: Type | undefined`
+- `esModuleInterop=true`, `env=node`, `outputExtensions=true`
+- Do not change these options without verifying that `ClientBuilder`, `promisifyClient`, and all examples still compile
+
+**Generated message shape**: Every protobuf message type exports a TypeScript `interface` and a companion object with `encode`, `decode`, `fromJSON`, `toJSON`, `create`, and `fromPartial` methods, plus `DeepPartial<T>` and `Exact<P, I>` helper types (repeated per file -- this is normal for ts-proto). Generated enums use numeric values with an `UNRECOGNIZED = -1` sentinel.
+
 **Hand-written code** (where your changes go):
 - `src/kessel/inventory/index.ts` -- `ClientBuilder` abstract class and `clientBuilderForStub()` factory
 - `src/kessel/inventory/*/index.ts` -- Per-version wiring (imports generated client, exports `ClientBuilder`)
 - `src/kessel/auth/index.ts` -- OAuth2 client credentials
+- `src/kessel/console/index.ts` -- Red Hat identity header parsing
 - `src/kessel/grpc/index.ts` -- gRPC call credentials helper
 - `src/kessel/rbac/v2.ts` -- RBAC REST helpers
 - `src/promisify.ts` -- Client promisification utility
@@ -93,6 +105,8 @@ This is the most important architectural distinction in the repo.
 - `npm run prettier:check` -- Prettier without auto-fix (used in CI)
 
 CI (`.github/workflows/build.yml`) runs on every push/PR to `main`, testing Node 20, 22, and 24. All four checks must pass: lint, prettier, build, test.
+
+Dependabot (`.github/dependabot.yml`) checks both npm and GitHub Actions dependencies daily. Review and merge security updates promptly.
 
 ## Naming Conventions
 
@@ -139,6 +153,44 @@ CI (`.github/workflows/build.yml`) runs on every push/PR to `main`, testing Node
 - `Object.freeze()` on returned token response objects (immutable by convention)
 - Async generator pattern for paginated streaming (see `listWorkspaces` in `rbac/v2.ts`)
 
+## Error Handling Conventions
+
+These conventions apply across all modules. See individual GUIDELINES.md files for module-specific error details.
+
+- **No custom error classes.** The SDK uses plain `Error` and `@grpc/grpc-js` `ServiceError`. Do not define custom error types.
+- **Let errors propagate.** Do not catch errors inside SDK source to suppress them. Let them reach the caller.
+- **Three distinct code spaces.** Do not conflate gRPC `ServiceError.code` (gRPC status enum, e.g. 5 = NOT_FOUND), `google.rpc.Status.code` (in bulk response per-item errors), and HTTP status codes (in RBAC fetch responses). They are separate systems.
+- **Bulk per-item errors.** `checkBulk`, `checkSelfBulk`, and `checkForUpdateBulk` use a per-item error model. A successful RPC does not mean every item succeeded -- always check `pair.error` on each `CheckBulkResponsePair`. `pair.item` and `pair.error` are mutually exclusive.
+- **`ALLOWED_FALSE` is not an error.** It is a valid authorization response. `ALLOWED_UNSPECIFIED` (0) typically means the field was not set and should be handled defensively.
+
+## Consistency Modes
+
+Every check and list request accepts an optional `consistency` field that trades latency for freshness:
+
+| Mode | When to use | Latency |
+|---|---|---|
+| `minimizeLatency: true` | Read-heavy dashboards, UI filtering | Lowest |
+| `atLeastAsFresh: { token }` | Read-after-write with a known token | Medium |
+| `atLeastAsAcknowledged: true` | Must see all acknowledged writes | Higher |
+| Omitted | Server default (typically `minimizeLatency`) | Varies |
+
+For `reportResource`, `writeVisibility` controls the write side: `MINIMIZE_LATENCY` returns quickly (subsequent checks may not reflect the write), while `IMMEDIATE` waits for acknowledgment. For security-critical checks immediately after permission changes, use `atLeastAsAcknowledged` or `atLeastAsFresh` with a token from the write response.
+
+## Testing Conventions
+
+Tests use Jest with ts-jest. See individual GUIDELINES.md files for module-specific test patterns.
+
+### Assertion patterns
+- `toBe` for primitives and identity checks; `toEqual` for deep object comparison
+- `rejects.toThrow("message")` for async error assertions; `expect(() => ...).toThrow("message")` for sync
+- Verify mock call counts explicitly: `expect(mock).toHaveBeenCalledTimes(n)`
+- Use `toBeFalsy()` (not `toBe(false)`) for checks that may return `undefined` or `false`
+
+### What not to test
+- Generated protobuf types (auto-generated by `buf generate`)
+- The `promisify.ts` utility internals (tested indirectly through ClientBuilder tests)
+- The `dist/` output (tested through the CI build step)
+
 ## Commit Message Conventions
 
 The project uses conventional-ish commits but does not enforce them with tooling:
@@ -151,6 +203,7 @@ The project uses conventional-ish commits but does not enforce them with tooling
 
 - All CI checks must pass: lint, prettier, build, test (Node 20/22/24)
 - Do not edit generated files -- changes to protobuf types must go through the upstream proto definitions at `buf.build/project-kessel/inventory-api`
+- Review automated buf-generate PRs for unexpected changes to security-sensitive types (`CheckRequest`, `Consistency`, `SubjectReference`, etc.)
 - New public API surfaces (new version directories, new exported modules) require:
   1. A hand-written `index.ts` with `ClientBuilder` wiring
   2. Corresponding entries in `package.json` `exports` (require/import/types triple + wildcard)
@@ -159,35 +212,9 @@ The project uses conventional-ish commits but does not enforce them with tooling
 
 ## Maintaining Examples
 
-When public API surface is added or changed (new modules, new exported functions/classes, changed method signatures), update the `examples/` directory so that examples stay accurate and demonstrate current usage.
+See `examples/GUIDELINES.md` for full conventions on file naming, script structure, imports, environment variables, and npm script registration.
 
-### Directory layout
-
-Examples live in `examples/` at the repository root, organized by subdirectory:
-
-| Subdirectory | Purpose |
-|---|---|
-| `builder/` | `ClientBuilder` + `buildAsync()` usage (Promise-based) |
-| `vanilla/` | Raw gRPC stubs with callbacks |
-| `rbac/` | RBAC workspace REST helpers |
-| `console/` | Console identity helpers |
-
-### Conventions
-
-- **File naming**: `snake_case.ts` matching the API operation (e.g., `check.ts`, `report_resource.ts`, `streamed_list_objects.ts`).
-- **Runnable scripts**: Each example is a standalone, runnable script executed via `tsx`. They are **not automated tests** — they require a live Kessel server. See `examples/.env.sample` for required environment variables.
-- **Imports**: Use **package subpath imports** (e.g., `import { ClientBuilder } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2"`), not relative source imports.
-- **Env config**: Import `"dotenv/config"` at the top for environment variable loading.
-- **npm scripts**: Register each example in `examples/package.json` using the `<directory>:<operation>` format (e.g., `"builder:check_bulk": "tsx builder/check_bulk.ts"`).
-- **Structure pattern**: Setup (construct client / prepare data) → Execute (call the API) → Output (log the result). Wrap async operations in an IIFE with try/catch.
-
-### When to add or update
-
-- **New API operation**: Add example files in the relevant subdirectory. If the operation supports both builder and vanilla styles, add to both `builder/` and `vanilla/`.
-- **New module or subpath export**: Add at least one example demonstrating basic usage. Create a new subdirectory if the module represents a distinct concern (as was done for `rbac/` and `console/`).
-- **Changed method signatures**: Update all existing examples that call the changed method.
-- **New npm script**: Every new example file must have a corresponding npm script entry in `examples/package.json`.
-- **Removed API surface**: Remove or update examples that reference removed exports. Remove the corresponding npm script.
+When public API surface is added or changed, update the `examples/` directory so that examples stay accurate and demonstrate current usage. Add examples for new API operations, new subpath exports, and changed method signatures. Remove examples for removed API surface.
 
 ## Common Pitfalls
 
@@ -199,13 +226,19 @@ Examples live in `examples/` at the repository root, organized by subdirectory:
 
 4. **Mixing auth with insecure channels**: The builder throws `"Invalid credential configuration: can not authenticate with insecure channel"` if you combine call credentials with `insecure()`. This is validated at configuration time, not at call time.
 
-5. **Creating multiple client instances**: Each `build()`/`buildAsync()` call creates a new gRPC client with its own HTTP/2 channel. Create one client and reuse it. See `docs/performance-guidelines.md`.
+5. **Creating multiple client instances**: Each `build()`/`buildAsync()` call creates a new gRPC client with its own HTTP/2 channel. Create one client and reuse it.
 
 6. **Assuming streaming methods are promisified**: `buildAsync()` only promisifies unary methods. Streaming methods (`streamedListObjects`, `streamedListSubjects`) remain as-is because they already return `AsyncIterable`.
 
 7. **Testing with package imports instead of relative imports**: Tests must use relative imports from source (`../index`), not package subpath imports (`@project-kessel/kessel-sdk/...`). Package imports are only used in `examples/`.
 
 8. **Forgetting `strictNullChecks` is off**: The tsconfig has `strictNullChecks: false`. Code that works here may fail in consumer projects with stricter settings. Be aware when writing type signatures.
+
+9. **Treating a successful bulk RPC as fully successful**: Bulk endpoints use per-item errors. Always iterate `response.pairs` and check `pair.error` on each entry. See the Error Handling Conventions section.
+
+10. **Not closing gRPC clients**: `@grpc/grpc-js` clients hold open HTTP/2 connections. Call `client.close()` during graceful shutdown. Failing to close clients in short-lived processes (CLI tools, serverless functions) can cause the Node.js process to hang on exit.
+
+11. **Needing gRPC channel options with ClientBuilder**: `ClientBuilder` does not expose `@grpc/grpc-js` channel options (keepalive, message size). If you need these, use the vanilla constructor with `ClientOptions` as the third argument.
 
 ## Architecture: How the Modules Connect
 
@@ -233,6 +266,10 @@ ClientBuilder (abstract, in inventory/index.ts)
 Generated gRPC stubs (protoc-gen-ts_proto output)
   |-- use @grpc/grpc-js for transport
   |-- use protobufjs/minimal for serialization
+
+Console module (console/index.ts)
+  |-- parses x-rh-identity header
+  |-- extracts principal via principalSubject (rbac/v2.ts)
 
 RBAC module (rbac/v2.ts) -- separate from the gRPC path
   |-- uses native fetch() for REST calls
