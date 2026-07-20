@@ -16,11 +16,17 @@ export interface Workspace {
   description: string;
 }
 
+export interface FetchWorkspaceOptions {
+  /** When true, omits the `with_ancestry=true` query parameter. */
+  disableAncestry?: boolean;
+}
+
 const fetchWorkspace = async (
   rbacBaseEndpoint: string,
   orgId: string,
   workspaceType: string,
   auth?: AuthRequest,
+  options?: FetchWorkspaceOptions,
 ): Promise<Workspace> => {
   if (rbacBaseEndpoint.endsWith("/")) {
     rbacBaseEndpoint = rbacBaseEndpoint.slice(0, -1);
@@ -28,6 +34,9 @@ const fetchWorkspace = async (
 
   const url = new URL(rbacBaseEndpoint + WORKSPACE_ENDPOINT);
   url.searchParams.set("type", workspaceType);
+  if (!options?.disableAncestry) {
+    url.searchParams.set("with_ancestry", "true");
+  }
 
   const request = new Request(url, {
     method: "GET",
@@ -63,16 +72,18 @@ export const fetchDefaultWorkspace = async (
   rbacBaseEndpoint: string,
   orgId: string,
   auth?: AuthRequest,
+  options?: FetchWorkspaceOptions,
 ) => {
-  return fetchWorkspace(rbacBaseEndpoint, orgId, "default", auth);
+  return fetchWorkspace(rbacBaseEndpoint, orgId, "default", auth, options);
 };
 
 export const fetchRootWorkspace = async (
   rbacBaseEndpoint: string,
   orgId: string,
   auth?: AuthRequest,
+  options?: FetchWorkspaceOptions,
 ) => {
-  return fetchWorkspace(rbacBaseEndpoint, orgId, "root", auth);
+  return fetchWorkspace(rbacBaseEndpoint, orgId, "root", auth, options);
 };
 
 export const workspaceType = (): RepresentationType => {

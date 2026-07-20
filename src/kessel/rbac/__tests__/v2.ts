@@ -51,7 +51,7 @@ describe("RBAC workspace fetching", () => {
 
       const capturedRequest = mockFetch.mock.calls[0][0];
       expect(capturedRequest.url).toBe(
-        `${baseEndpoint}/api/rbac/v2/workspaces/?type=default`,
+        `${baseEndpoint}/api/rbac/v2/workspaces/?type=default&with_ancestry=true`,
       );
       expect(capturedRequest.method).toBe("GET");
       expect(capturedRequest.headers.get("x-rh-rbac-org-id")).toBe(orgId);
@@ -114,7 +114,7 @@ describe("RBAC workspace fetching", () => {
 
       const capturedRequest = mockFetch.mock.calls[0][0];
       expect(capturedRequest.url).toBe(
-        `${baseEndpoint}/api/rbac/v2/workspaces/?type=default`,
+        `${baseEndpoint}/api/rbac/v2/workspaces/?type=default&with_ancestry=true`,
       );
     });
 
@@ -197,6 +197,97 @@ describe("RBAC workspace fetching", () => {
     });
   });
 
+  describe("with_ancestry query parameter", () => {
+    const mockWorkspace = {
+      id: "workspace-ancestry",
+      name: "Default Workspace",
+      type: "default",
+      description: "Workspace with ancestry",
+    };
+
+    it("sends with_ancestry=true by default on fetchDefaultWorkspace", async () => {
+      mockFetch.mockResolvedValue({
+        status: 200,
+        json: jest.fn().mockResolvedValue({ data: [mockWorkspace] }),
+      });
+
+      await fetchDefaultWorkspace(baseEndpoint, orgId);
+
+      const capturedRequest = mockFetch.mock.calls[0][0];
+      const url = new URL(capturedRequest.url);
+      expect(url.searchParams.get("with_ancestry")).toBe("true");
+    });
+
+    it("sends with_ancestry=true by default on fetchRootWorkspace", async () => {
+      const rootWorkspace = { ...mockWorkspace, type: "root" };
+      mockFetch.mockResolvedValue({
+        status: 200,
+        json: jest.fn().mockResolvedValue({ data: [rootWorkspace] }),
+      });
+
+      await fetchRootWorkspace(baseEndpoint, orgId);
+
+      const capturedRequest = mockFetch.mock.calls[0][0];
+      const url = new URL(capturedRequest.url);
+      expect(url.searchParams.get("with_ancestry")).toBe("true");
+    });
+
+    it("omits with_ancestry when disableAncestry is true", async () => {
+      mockFetch.mockResolvedValue({
+        status: 200,
+        json: jest.fn().mockResolvedValue({ data: [mockWorkspace] }),
+      });
+
+      await fetchDefaultWorkspace(baseEndpoint, orgId, undefined, {
+        disableAncestry: true,
+      });
+
+      const capturedRequest = mockFetch.mock.calls[0][0];
+      const url = new URL(capturedRequest.url);
+      expect(url.searchParams.has("with_ancestry")).toBe(false);
+    });
+
+    it("sends with_ancestry when disableAncestry is false", async () => {
+      mockFetch.mockResolvedValue({
+        status: 200,
+        json: jest.fn().mockResolvedValue({ data: [mockWorkspace] }),
+      });
+
+      await fetchDefaultWorkspace(baseEndpoint, orgId, undefined, {
+        disableAncestry: false,
+      });
+
+      const capturedRequest = mockFetch.mock.calls[0][0];
+      const url = new URL(capturedRequest.url);
+      expect(url.searchParams.get("with_ancestry")).toBe("true");
+    });
+
+    it("combines auth and disableAncestry options", async () => {
+      mockFetch.mockResolvedValue({
+        status: 200,
+        json: jest.fn().mockResolvedValue({ data: [mockWorkspace] }),
+      });
+
+      const mockAuth: AuthRequest = {
+        configureRequest: jest.fn().mockImplementation(async (request) => {
+          request.headers.set("authorization", "Bearer ancestry-token");
+        }),
+      };
+
+      await fetchRootWorkspace(baseEndpoint, orgId, mockAuth, {
+        disableAncestry: true,
+      });
+
+      expect(mockAuth.configureRequest).toHaveBeenCalled();
+      const capturedRequest = mockFetch.mock.calls[0][0];
+      const url = new URL(capturedRequest.url);
+      expect(url.searchParams.has("with_ancestry")).toBe(false);
+      expect(capturedRequest.headers.get("authorization")).toBe(
+        "Bearer ancestry-token",
+      );
+    });
+  });
+
   describe("fetchRootWorkspace", () => {
     it("fetches root workspace successfully", async () => {
       const mockWorkspace = {
@@ -221,7 +312,7 @@ describe("RBAC workspace fetching", () => {
 
       const capturedRequest = mockFetch.mock.calls[0][0];
       expect(capturedRequest.url).toBe(
-        `${baseEndpoint}/api/rbac/v2/workspaces/?type=root`,
+        `${baseEndpoint}/api/rbac/v2/workspaces/?type=root&with_ancestry=true`,
       );
       expect(capturedRequest.method).toBe("GET");
       expect(capturedRequest.headers.get("x-rh-rbac-org-id")).toBe(orgId);
