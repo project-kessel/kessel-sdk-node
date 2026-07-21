@@ -243,7 +243,7 @@ CI runs on every push/PR to `main`, testing Node 20, 22, and 24. All four checks
 
 ## Releases
 
-Releases are fully automated using [semantic-release](https://semantic-release.gitbook.io/). Every push to `main` triggers a workflow that analyzes commit messages, generates a changelog, and publishes to npm if warranted.
+Releases are fully automated using [semantic-release](https://semantic-release.gitbook.io/). Every push to `main` triggers a workflow that analyzes commit messages and publishes to npm if warranted. Release notes appear on the GitHub Release.
 
 ### Commit Message Format
 
@@ -283,9 +283,10 @@ When you merge a PR with conventional commits to `main`, the release workflow:
 
 1. Runs quality checks (lint, prettier, build, and test on Node 20/22/24)
 2. Determines the next version from commits
-3. Generates `CHANGELOG.md`
-4. Publishes to npm with provenance attestation
-5. Creates a GitHub release
+3. Publishes to npm with provenance attestation
+4. Creates a GitHub release with notes and package tarball
+
+The published package version is set at release time. `package.json` on `main` is not bumped by the release job (avoids pushing to the protected branch).
 
 ## Need Help?
 
