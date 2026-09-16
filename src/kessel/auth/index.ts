@@ -1,3 +1,5 @@
+import { inspect } from "util";
+
 import type * as oauth from "oauth4webapi";
 
 const EXPIRATION_WINDOW_MILLI = 300000; // 5 minutes in milliseconds
@@ -83,6 +85,7 @@ export const fetchOIDCDiscovery = async (
  * ```
  */
 export class OAuth2ClientCredentials {
+  readonly #auth: ClientConfigAuth;
   private tokenCache?: RefreshTokenResponse;
   private pendingRefresh: Promise<Readonly<RefreshTokenResponse>> | null = null;
   private authServer: oauth.AuthorizationServer;
@@ -92,11 +95,25 @@ export class OAuth2ClientCredentials {
   private processClientCredentialsResponse: typeof oauth.processClientCredentialsResponse;
 
   /**
+   * The OAuth configuration.
+   *
+   * The accessor returns the live config object so callers can read
+   * `clientId`, `clientSecret`, and `tokenEndpoint` directly.
+   * Because `auth` is a prototype getter (not an own enumerable property),
+   * it is excluded from object spread (`{...credentials}`) and
+   * `Object.keys()`.
+   */
+  get auth(): ClientConfigAuth {
+    return this.#auth;
+  }
+
+  /**
    * Creates a new OAuth2ClientCredentials instance.
    *
    * @param auth - The OAuth configuration object containing clientId, clientSecret, and tokenEndpoint
    */
-  constructor(readonly auth: ClientConfigAuth) {
+  constructor(auth: ClientConfigAuth) {
+    this.#auth = auth;
     this.authServer = {
       issuer: auth.tokenEndpoint,
       token_endpoint: auth.tokenEndpoint,
@@ -178,6 +195,39 @@ export class OAuth2ClientCredentials {
     } finally {
       this.pendingRefresh = null;
     }
+  }
+
+  /**
+   * Returns a JSON-safe representation with `clientSecret` redacted.
+   *
+   * Called automatically by `JSON.stringify()`.
+   */
+  toJSON(): Record<string, unknown> {
+    return {
+      auth: {
+        clientId: this.#auth.clientId,
+        clientSecret: "[REDACTED]",
+        tokenEndpoint: this.#auth.tokenEndpoint,
+      },
+    };
+  }
+
+  /**
+   * Returns a string representation with `clientSecret` redacted.
+   *
+   * Called automatically by `String()` and string interpolation.
+   */
+  toString(): string {
+    return JSON.stringify(this.toJSON());
+  }
+
+  /**
+   * Custom inspect for `console.log()` and `util.inspect()`.
+   *
+   * Redacts `clientSecret` so secrets are not leaked in logs.
+   */
+  [inspect.custom](): Record<string, unknown> {
+    return this.toJSON();
   }
 
   private async refresh(): Promise<Readonly<RefreshTokenResponse>> {
