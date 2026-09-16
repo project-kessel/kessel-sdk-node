@@ -1,3 +1,5 @@
+import { inspect } from "util";
+
 import {
   OAuth2ClientCredentials,
   fetchOIDCDiscovery,
@@ -711,6 +713,122 @@ describe("OAuth2ClientCredentials", () => {
       expect(tokenRetriever.auth.clientSecret).toBe(
         "test-secret-with-special-chars!@#$%^&*()",
       );
+    });
+  });
+  describe("Secret Redaction", () => {
+    const secretAuth = {
+      clientId: "redact-client",
+      clientSecret: "super-secret-value",
+      tokenEndpoint: "https://example.com/token",
+    };
+
+    it("auth getter returns the live config with real secret", () => {
+      const credentials = new OAuth2ClientCredentials(secretAuth);
+
+      expect(credentials.auth).toBe(secretAuth);
+      expect(credentials.auth.clientId).toBe("redact-client");
+      expect(credentials.auth.clientSecret).toBe("super-secret-value");
+      expect(credentials.auth.tokenEndpoint).toBe("https://example.com/token");
+    });
+
+    it("JSON.stringify redacts clientSecret", () => {
+      const credentials = new OAuth2ClientCredentials(secretAuth);
+      const json = JSON.stringify(credentials);
+      const parsed = JSON.parse(json);
+
+      expect(parsed.auth.clientId).toBe("redact-client");
+      expect(parsed.auth.clientSecret).toBe("[REDACTED]");
+      expect(parsed.auth.tokenEndpoint).toBe("https://example.com/token");
+      expect(json).not.toContain("super-secret-value");
+    });
+
+    it("toString() redacts clientSecret", () => {
+      const credentials = new OAuth2ClientCredentials(secretAuth);
+      const str = credentials.toString();
+
+      expect(str).toContain("redact-client");
+      expect(str).toContain("[REDACTED]");
+      expect(str).not.toContain("super-secret-value");
+    });
+
+    it("String() coercion redacts clientSecret", () => {
+      const credentials = new OAuth2ClientCredentials(secretAuth);
+      const str = String(credentials);
+
+      expect(str).toContain("[REDACTED]");
+      expect(str).not.toContain("super-secret-value");
+    });
+
+    it("util.inspect redacts clientSecret", () => {
+      const credentials = new OAuth2ClientCredentials(secretAuth);
+      const inspected = inspect(credentials);
+
+      expect(inspected).toContain("redact-client");
+      expect(inspected).toContain("[REDACTED]");
+      expect(inspected).not.toContain("super-secret-value");
+    });
+
+    it("object spread does not include auth", () => {
+      const credentials = new OAuth2ClientCredentials(secretAuth);
+      const spread = { ...credentials };
+
+      expect(spread).not.toHaveProperty("auth");
+      expect(Object.keys(spread)).not.toContain("auth");
+    });
+
+    it("Object.keys does not include auth", () => {
+      const credentials = new OAuth2ClientCredentials(secretAuth);
+      const keys = Object.keys(credentials);
+
+      expect(keys).not.toContain("auth");
+    });
+
+    it("toJSON preserves clientId and tokenEndpoint", () => {
+      const credentials = new OAuth2ClientCredentials(secretAuth);
+      const json = credentials.toJSON();
+
+      expect(json).toEqual({
+        auth: {
+          clientId: "redact-client",
+          clientSecret: "[REDACTED]",
+          tokenEndpoint: "https://example.com/token",
+        },
+      });
+    });
+
+    it("redaction works with empty clientSecret", () => {
+      const emptySecretAuth = {
+        clientId: "test-client",
+        clientSecret: "",
+        tokenEndpoint: "https://example.com/token",
+      };
+      const credentials = new OAuth2ClientCredentials(emptySecretAuth);
+
+      // Accessor returns real (empty) value
+      expect(credentials.auth.clientSecret).toBe("");
+
+      // Serialization still redacts
+      const parsed = JSON.parse(JSON.stringify(credentials));
+      expect(parsed.auth.clientSecret).toBe("[REDACTED]");
+    });
+
+    it("redaction works with special characters in secret", () => {
+      const specialAuth = {
+        clientId: "test-client",
+        clientSecret: 'secret-with-"quotes"-and-\\backslash',
+        tokenEndpoint: "https://example.com/token",
+      };
+      const credentials = new OAuth2ClientCredentials(specialAuth);
+
+      // Accessor returns real value
+      expect(credentials.auth.clientSecret).toBe(
+        'secret-with-"quotes"-and-\\backslash',
+      );
+
+      // Serialization redacts
+      const json = JSON.stringify(credentials);
+      expect(json).not.toContain("quotes");
+      expect(json).toContain("[REDACTED]");
     });
   });
 });
