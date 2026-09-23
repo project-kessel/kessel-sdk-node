@@ -1,3 +1,10 @@
+/**
+ * WARNING: This example uses .insecure() for local development only.
+ * DO NOT USE IN PRODUCTION. This disables TLS encryption and certificate validation.
+ * For production, use proper TLS credentials with certificate verification.
+ * See the auth.ts example for secure credential configuration.
+ */
+
 import "dotenv/config";
 import { CheckBulkRequestItem } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/check_bulk_request";
 import { ClientBuilder } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2";
@@ -7,6 +14,7 @@ import {
 } from "@project-kessel/kessel-sdk/kessel/rbac/v2";
 import { CheckBulkRequest } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/check_bulk_request";
 
+// WARNING: .insecure() disables TLS - local development only
 const client = new ClientBuilder(process.env.KESSEL_ENDPOINT!)
   .insecure()
   .buildAsync(); // Or .build if using the callback client
