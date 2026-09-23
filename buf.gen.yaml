@@ -1,3 +1,10 @@
+# TODO: Pin BSR module to immutable digest for supply-chain security.
+# Current unversioned module reference is vulnerable to upstream changes.
+# To pin:
+#   1. Run `buf mod update` to generate buf.lock with module digest
+#   2. Replace module reference with: buf.build/project-kessel/inventory-api:<commit-digest>
+# Plugin `stephenh-ts-proto` is already version-pinned (v1.178.0), but consider adding digest.
+# See: https://buf.build/docs/bsr/authentication#pinning-dependencies
 version: v2
 inputs:
   - module: buf.build/project-kessel/inventory-api
