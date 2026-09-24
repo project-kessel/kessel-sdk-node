@@ -1134,10 +1134,8 @@ describe("OAuth2ClientCredentials", () => {
       tokens.forEach((token) =>
         expect(token.accessToken).toBe("retried-coalesced-token"),
       );
-      // Only one refresh path runs (coalesced), so retries happen once
-      expect(
-        mockOAuth.clientCredentialsGrantRequest.mock.calls.length,
-      ).toBeGreaterThanOrEqual(2);
+      // Only one refresh path runs (coalesced): 1 × 503 + 1 × 200 = 2
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(2);
     });
   });
 

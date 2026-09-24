@@ -4,6 +4,7 @@ import type * as oauth from "oauth4webapi";
 
 const EXPIRATION_WINDOW_MILLI = 300000; // 5 minutes in milliseconds
 const DEFAULT_EXPIRE_IN_SECONDS = 3600; // 1 hour in seconds
+const REQUEST_TIMEOUT_MS = 30_000; // 30 seconds per-attempt timeout
 
 interface RefreshTokenResponse {
   accessToken: string;
@@ -51,6 +52,10 @@ const errorName = (error: unknown): string | undefined =>
 const isAbortError = (error: unknown): boolean =>
   errorName(error) === "DOMException" &&
   (error as { name?: string }).name === "AbortError";
+
+const isTimeoutError = (error: unknown): boolean =>
+  errorName(error) === "DOMException" &&
+  (error as { name?: string }).name === "TimeoutError";
 
 const isRetryableConnectionError = (error: unknown): boolean =>
   errorName(error) === "TypeError";
@@ -180,7 +185,12 @@ export class OAuth2ClientCredentials {
    */
   constructor(auth: ClientConfigAuth, retry?: RetryOptions) {
     this.#auth = auth;
-    this.#retry = Object.freeze({ ...DEFAULT_RETRY_OPTIONS, ...(retry ?? {}) });
+    this.#retry = Object.freeze({
+      maxRetries: retry?.maxRetries ?? DEFAULT_RETRY_OPTIONS.maxRetries,
+      baseDelay: retry?.baseDelay ?? DEFAULT_RETRY_OPTIONS.baseDelay,
+      maxDelay: retry?.maxDelay ?? DEFAULT_RETRY_OPTIONS.maxDelay,
+      jitter: retry?.jitter ?? DEFAULT_RETRY_OPTIONS.jitter,
+    });
     this.authServer = {
       issuer: auth.tokenEndpoint,
       token_endpoint: auth.tokenEndpoint,
@@ -317,10 +327,16 @@ export class OAuth2ClientCredentials {
           client,
           clientAuth,
           parameters,
+          { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) },
         );
       } catch (error) {
         // Caller cancellation (AbortError) is never retried
         if (isAbortError(error)) throw error;
+        // Per-attempt timeout (TimeoutError) is retryable
+        if (isTimeoutError(error)) {
+          if (canRetry) continue;
+          throw error;
+        }
         // Connection/network errors (TypeError from fetch) are retryable
         if (canRetry && isRetryableConnectionError(error)) continue;
         throw error;
@@ -329,6 +345,7 @@ export class OAuth2ClientCredentials {
       // Check HTTP status before processing — oauth4webapi may convert
       // server errors into opaque exceptions that lose the status code
       if (isRetryableStatus(response.status)) {
+        await response.body?.cancel().catch(() => {});
         if (canRetry) continue;
         throw new Error(`Token endpoint returned HTTP ${response.status}`);
       }

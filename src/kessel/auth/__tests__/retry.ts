@@ -116,12 +116,18 @@ describe("OAuth2ClientCredentials retry (integration)", () => {
       const server = net.createServer((socket) => {
         connectionCount++;
         if (connectionCount === 1) {
-          // Drain incoming data then destroy — simulates endpoint dropping
-          // the connection before sending any response headers.
-          socket.on("data", () => {
-            /* consume */
+          // Read the full HTTP request, then destroy — simulates endpoint
+          // dropping the connection before sending any response headers.
+          // Waiting for request data ensures the TCP handshake completes
+          // and fetch registers the connection before the abrupt close,
+          // producing a reliable TypeError across all Node.js versions.
+          let reqData = "";
+          socket.on("data", (chunk) => {
+            reqData += chunk.toString();
+            if (reqData.includes("\r\n\r\n")) {
+              socket.destroy();
+            }
           });
-          socket.destroy();
           return;
         }
         // Subsequent connections: consume the HTTP request, reply with token.
@@ -163,8 +169,11 @@ describe("OAuth2ClientCredentials retry (integration)", () => {
       const port = await listenOnRandomPort(tempServer);
       await closeServer(tempServer);
 
+      let connectionCount = 0;
+
       // Start a real server after a short delay
       const realServer = net.createServer((socket) => {
+        connectionCount++;
         let data = "";
         socket.on("data", (chunk) => {
           data += chunk.toString();
@@ -195,9 +204,16 @@ describe("OAuth2ClientCredentials retry (integration)", () => {
           { maxRetries: 3, baseDelay: 0.15, maxDelay: 0.5, jitter: "none" },
         );
 
+        // Start token request before server is ready so the first attempt
+        // hits a closed port (ECONNREFUSED), exercising connection-error
+        // retries. The retry fires after baseDelay (150ms), by which time
+        // the server is listening (started after 100ms).
+        const tokenPromise = credentials.getToken();
         await serverReady;
-        const token = await credentials.getToken();
+        const token = await tokenPromise;
         expect(token.accessToken).toBe("after-connrefused-token");
+        // Only the successful retry connects to the server
+        expect(connectionCount).toBe(1);
       } finally {
         await closeServer(realServer);
       }
