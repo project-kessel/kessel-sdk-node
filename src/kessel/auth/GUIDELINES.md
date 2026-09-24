@@ -53,6 +53,49 @@ interface AuthRequest {
 - The `configureRequest` method mutates the `Request` headers in place (`request.headers.set(...)`).
 - Auth is optional on RBAC workspace fetch functions. When omitted, the request is unauthenticated.
 
+## Token Endpoint Retry
+
+Token endpoint requests retry transient failures with bounded exponential backoff and jitter. Retry behavior is applied only while obtaining a token, not to arbitrary API calls or OIDC discovery.
+
+### Configuration
+
+Pass an optional `RetryOptions` object as the second constructor argument:
+
+```typescript
+const credentials = new OAuth2ClientCredentials(auth, {
+  maxRetries: 5, // default: 3 (0 disables retries)
+  baseDelay: 1.0, // default: 0.5 seconds
+  maxDelay: 10.0, // default: 2.0 seconds
+  jitter: "none", // default: "full"
+});
+```
+
+With defaults, the delay sequence caps at 0.5, 1, and 2 seconds (exponential from `baseDelay` of 0.5, doubling each retry, capped at `maxDelay` of 2.0). When jitter is `"full"`, the actual delay is randomized between 0 and the computed cap.
+
+### Retryable Failures
+
+- **Connection/network errors** — `TypeError` from `fetch` (connection refused, DNS failure, socket closed before response headers)
+- **HTTP 429** — Too Many Requests
+- **HTTP 5xx** — Server errors (500–599)
+
+### Non-Retryable Failures
+
+- **HTTP 400/401/403** — Client errors are returned without retrying
+- **AbortError** — Caller cancellation is never mistaken for a retryable transport failure
+- **Missing access_token** — Malformed success responses are not retried
+
+### How Retry Interacts with Thundering Herd Prevention
+
+Retry runs inside the existing promise coalescing (`pendingRefresh`). When N callers observe a stale token and one starts a refresh:
+
+- The refresh may internally retry several times on transient failures
+- All N callers see the same final outcome (success or failure)
+- At most one concurrent retry loop runs at a time
+
+### HTTP Status Checked Before oauth4webapi
+
+The HTTP response status is checked before calling `processClientCredentialsResponse`. This prevents oauth4webapi from converting 5xx responses into opaque exceptions that lose the original status code — the same pattern used by the Go SDK (`statusCapturingTransport`) and Python SDK (response hook).
+
 ## ClientSecretPost Authentication
 
 The SDK uses `oauth.ClientSecretPost` (secret in POST body), not `ClientSecretBasic` (HTTP Basic). Do not change this without coordinating with the Kessel auth infrastructure team.

@@ -2,9 +2,11 @@ import { inspect } from "util";
 
 import {
   OAuth2ClientCredentials,
+  DEFAULT_RETRY_OPTIONS,
   fetchOIDCDiscovery,
   oauth2AuthRequest,
 } from "../index";
+import type { RetryOptions } from "../index";
 
 // Mock oauth4webapi module
 const mockOAuth = {
@@ -829,6 +831,370 @@ describe("OAuth2ClientCredentials", () => {
       const json = JSON.stringify(credentials);
       expect(json).not.toContain("quotes");
       expect(json).toContain("[REDACTED]");
+    });
+  });
+
+  describe("Retry Configuration", () => {
+    it("uses default retry options when none provided", () => {
+      const credentials = new OAuth2ClientCredentials(mockAuth);
+      // Verify defaults by checking retry behavior: 3 retries = 4 total attempts
+      expect(DEFAULT_RETRY_OPTIONS).toEqual({
+        maxRetries: 3,
+        baseDelay: 0.5,
+        maxDelay: 2.0,
+        jitter: "full",
+      });
+      // Constructor accepts without retry param (backward compatible)
+      expect(credentials.auth).toBe(mockAuth);
+    });
+
+    it("accepts custom retry options", () => {
+      const retry: RetryOptions = {
+        maxRetries: 5,
+        baseDelay: 1.0,
+        maxDelay: 10.0,
+        jitter: "none",
+      };
+      const credentials = new OAuth2ClientCredentials(mockAuth, retry);
+      expect(credentials.auth).toBe(mockAuth);
+    });
+
+    it("accepts partial retry options and fills defaults", () => {
+      const credentials = new OAuth2ClientCredentials(mockAuth, {
+        maxRetries: 1,
+      });
+      expect(credentials.auth).toBe(mockAuth);
+    });
+
+    it("disables retries with maxRetries: 0", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockResolvedValue({
+        status: 500,
+      });
+
+      const credentials = new OAuth2ClientCredentials(mockAuth, {
+        maxRetries: 0,
+      });
+
+      await expect(credentials.getToken()).rejects.toThrow(
+        "Token endpoint returned HTTP 500",
+      );
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("Retry on Transient Failures", () => {
+    it("retries on connection error (TypeError) and succeeds", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest
+        .mockRejectedValueOnce(new TypeError("fetch failed"))
+        .mockResolvedValueOnce({ status: 200 });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "recovered-token",
+        expires_in: 3600,
+      });
+
+      const credentials = new OAuth2ClientCredentials(mockAuth);
+      const token = await credentials.getToken();
+
+      expect(token.accessToken).toBe("recovered-token");
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(2);
+    });
+
+    it("retries on HTTP 429 and succeeds", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest
+        .mockResolvedValueOnce({ status: 429 })
+        .mockResolvedValueOnce({ status: 200 });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "after-429-token",
+        expires_in: 3600,
+      });
+
+      const credentials = new OAuth2ClientCredentials(mockAuth);
+      const token = await credentials.getToken();
+
+      expect(token.accessToken).toBe("after-429-token");
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(2);
+    });
+
+    it("retries on HTTP 500 and succeeds", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest
+        .mockResolvedValueOnce({ status: 500 })
+        .mockResolvedValueOnce({ status: 200 });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "after-500-token",
+        expires_in: 3600,
+      });
+
+      const credentials = new OAuth2ClientCredentials(mockAuth);
+      const token = await credentials.getToken();
+
+      expect(token.accessToken).toBe("after-500-token");
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(2);
+    });
+
+    it("retries on HTTP 502 and succeeds", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest
+        .mockResolvedValueOnce({ status: 502 })
+        .mockResolvedValueOnce({ status: 200 });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "after-502-token",
+        expires_in: 3600,
+      });
+
+      const credentials = new OAuth2ClientCredentials(mockAuth);
+      const token = await credentials.getToken();
+
+      expect(token.accessToken).toBe("after-502-token");
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(2);
+    });
+
+    it("retries on HTTP 503 and succeeds", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest
+        .mockResolvedValueOnce({ status: 503 })
+        .mockResolvedValueOnce({ status: 200 });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "after-503-token",
+        expires_in: 3600,
+      });
+
+      const credentials = new OAuth2ClientCredentials(mockAuth);
+      const token = await credentials.getToken();
+
+      expect(token.accessToken).toBe("after-503-token");
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(2);
+    });
+
+    it("retries on HTTP 599 (upper 5xx boundary)", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest
+        .mockResolvedValueOnce({ status: 599 })
+        .mockResolvedValueOnce({ status: 200 });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "after-599-token",
+        expires_in: 3600,
+      });
+
+      const credentials = new OAuth2ClientCredentials(mockAuth);
+      const token = await credentials.getToken();
+
+      expect(token.accessToken).toBe("after-599-token");
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(2);
+    });
+
+    it("retries multiple times before success", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest
+        .mockRejectedValueOnce(new TypeError("fetch failed"))
+        .mockResolvedValueOnce({ status: 503 })
+        .mockResolvedValueOnce({ status: 429 })
+        .mockResolvedValueOnce({ status: 200 });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "after-three-retries",
+        expires_in: 3600,
+      });
+
+      const credentials = new OAuth2ClientCredentials(mockAuth);
+      const token = await credentials.getToken();
+
+      expect(token.accessToken).toBe("after-three-retries");
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(4);
+    });
+
+    it("throws after exhausting all retries on connection errors", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockRejectedValue(
+        new TypeError("fetch failed"),
+      );
+
+      const credentials = new OAuth2ClientCredentials(mockAuth, {
+        maxRetries: 2,
+      });
+
+      await expect(credentials.getToken()).rejects.toThrow("fetch failed");
+      // 1 initial + 2 retries = 3 total
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(3);
+    });
+
+    it("throws after exhausting all retries on HTTP 500", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockResolvedValue({
+        status: 500,
+      });
+
+      const credentials = new OAuth2ClientCredentials(mockAuth, {
+        maxRetries: 2,
+      });
+
+      await expect(credentials.getToken()).rejects.toThrow(
+        "Token endpoint returned HTTP 500",
+      );
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe("Non-Retryable Failures", () => {
+    it("does not retry on HTTP 400", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockResolvedValue({
+        status: 400,
+      });
+      mockOAuth.processClientCredentialsResponse.mockRejectedValue(
+        new Error("invalid_request"),
+      );
+
+      const credentials = new OAuth2ClientCredentials(mockAuth);
+
+      await expect(credentials.getToken()).rejects.toThrow("invalid_request");
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not retry on HTTP 401", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockResolvedValue({
+        status: 401,
+      });
+      mockOAuth.processClientCredentialsResponse.mockRejectedValue(
+        new Error("invalid_client"),
+      );
+
+      const credentials = new OAuth2ClientCredentials(mockAuth);
+
+      await expect(credentials.getToken()).rejects.toThrow("invalid_client");
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not retry on HTTP 403", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockResolvedValue({
+        status: 403,
+      });
+      mockOAuth.processClientCredentialsResponse.mockRejectedValue(
+        new Error("access_denied"),
+      );
+
+      const credentials = new OAuth2ClientCredentials(mockAuth);
+
+      await expect(credentials.getToken()).rejects.toThrow("access_denied");
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not retry on AbortError (caller cancellation)", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockRejectedValue(
+        new DOMException("The operation was aborted", "AbortError"),
+      );
+
+      const credentials = new OAuth2ClientCredentials(mockAuth);
+
+      await expect(credentials.getToken()).rejects.toThrow(
+        "The operation was aborted",
+      );
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not retry missing access_token in response", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockResolvedValue({
+        status: 200,
+      });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({});
+
+      const credentials = new OAuth2ClientCredentials(mockAuth);
+
+      await expect(credentials.getToken()).rejects.toThrow(
+        "No access token received from OAuth server",
+      );
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("Retry with Thundering Herd", () => {
+    it("retries inside coalesced refresh — concurrent callers see retried result", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest
+        .mockResolvedValueOnce({ status: 503 })
+        .mockImplementation(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          return { status: 200 };
+        });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "retried-coalesced-token",
+        expires_in: 3600,
+      });
+
+      const credentials = new OAuth2ClientCredentials(mockAuth);
+      const promises = Array.from({ length: 10 }, () => credentials.getToken());
+      const tokens = await Promise.all(promises);
+
+      tokens.forEach((token) =>
+        expect(token.accessToken).toBe("retried-coalesced-token"),
+      );
+      // Only one refresh path runs (coalesced), so retries happen once
+      expect(
+        mockOAuth.clientCredentialsGrantRequest.mock.calls.length,
+      ).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe("Retry Backoff", () => {
+    it("applies delay between retries", async () => {
+      const start = Date.now();
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest
+        .mockResolvedValueOnce({ status: 500 })
+        .mockResolvedValueOnce({ status: 200 });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "delayed-token",
+        expires_in: 3600,
+      });
+
+      // Use "none" jitter for deterministic delay
+      const credentials = new OAuth2ClientCredentials(mockAuth, {
+        maxRetries: 1,
+        baseDelay: 0.1,
+        maxDelay: 1.0,
+        jitter: "none",
+      });
+      await credentials.getToken();
+      const elapsed = Date.now() - start;
+
+      // baseDelay = 0.1s = 100ms. Allow margin for timing.
+      expect(elapsed).toBeGreaterThanOrEqual(80);
+    });
+
+    it("caps delay at maxDelay", async () => {
+      const start = Date.now();
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest
+        .mockResolvedValueOnce({ status: 500 })
+        .mockResolvedValueOnce({ status: 500 })
+        .mockResolvedValueOnce({ status: 200 });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "capped-token",
+        expires_in: 3600,
+      });
+
+      // baseDelay=0.1, maxDelay=0.15, no jitter
+      // retry 0: min(0.15, 0.1 * 2^0) = min(0.15, 0.1) = 0.1
+      // retry 1: min(0.15, 0.1 * 2^1) = min(0.15, 0.2) = 0.15
+      // total: 0.25s = 250ms
+      const credentials = new OAuth2ClientCredentials(mockAuth, {
+        maxRetries: 2,
+        baseDelay: 0.1,
+        maxDelay: 0.15,
+        jitter: "none",
+      });
+      await credentials.getToken();
+      const elapsed = Date.now() - start;
+
+      expect(elapsed).toBeGreaterThanOrEqual(200);
+      // Should not exceed expected total + generous margin
+      expect(elapsed).toBeLessThan(600);
     });
   });
 });

@@ -10,6 +10,66 @@ interface RefreshTokenResponse {
   expiresAt: Date;
 }
 
+/**
+ * Configuration for bounded retries on transient OAuth token endpoint failures.
+ *
+ * Retry behavior is applied only while obtaining a token, not to arbitrary API
+ * calls or OIDC discovery. Implementations preserve thread-safe token caching
+ * and coalesce concurrent refresh attempts.
+ */
+export interface RetryOptions {
+  /** Maximum number of retries after the initial request (default: 3; 0 disables retries). */
+  maxRetries?: number;
+  /** Initial exponential backoff delay in seconds (default: 0.5). */
+  baseDelay?: number;
+  /** Maximum exponential backoff delay in seconds (default: 2.0). */
+  maxDelay?: number;
+  /** Jitter mode: `"full"` randomizes delay between 0 and the computed cap; `"none"` uses the cap as-is (default: `"full"`). */
+  jitter?: "full" | "none";
+}
+
+/**
+ * Default retry options applied when no explicit configuration is provided.
+ * 3 retries with full-jitter exponential backoff capped at 0.5, 1, and 2 seconds.
+ */
+export const DEFAULT_RETRY_OPTIONS: Readonly<Required<RetryOptions>> =
+  Object.freeze({
+    maxRetries: 3,
+    baseDelay: 0.5,
+    maxDelay: 2.0,
+    jitter: "full" as const,
+  });
+
+// Use constructor-name checks rather than instanceof — Node's fetch (undici)
+// may construct errors in a different V8 context, causing instanceof to
+// return false even for standard built-in types like TypeError and DOMException.
+const errorName = (error: unknown): string | undefined =>
+  error != null && typeof error === "object" && "constructor" in error
+    ? (error as { constructor: { name: string } }).constructor.name
+    : undefined;
+
+const isAbortError = (error: unknown): boolean =>
+  errorName(error) === "DOMException" &&
+  (error as { name?: string }).name === "AbortError";
+
+const isRetryableConnectionError = (error: unknown): boolean =>
+  errorName(error) === "TypeError";
+
+const isRetryableStatus = (status: number): boolean =>
+  status === 429 || (status >= 500 && status <= 599);
+
+const retryDelay = (
+  retryIndex: number,
+  options: Readonly<Required<RetryOptions>>,
+): number => {
+  // Cap exponent at 30 to prevent overflow with large retryIndex values
+  const cap = Math.min(
+    options.maxDelay,
+    options.baseDelay * Math.pow(2, Math.min(retryIndex, 30)),
+  );
+  return options.jitter === "full" ? Math.random() * cap : cap;
+};
+
 export interface ClientConfigAuth {
   /**
    * The OAuth client identifier.
@@ -86,6 +146,7 @@ export const fetchOIDCDiscovery = async (
  */
 export class OAuth2ClientCredentials {
   readonly #auth: ClientConfigAuth;
+  readonly #retry: Readonly<Required<RetryOptions>>;
   private tokenCache?: RefreshTokenResponse;
   private pendingRefresh: Promise<Readonly<RefreshTokenResponse>> | null = null;
   private authServer: oauth.AuthorizationServer;
@@ -110,10 +171,16 @@ export class OAuth2ClientCredentials {
   /**
    * Creates a new OAuth2ClientCredentials instance.
    *
+   * Token endpoint requests retry transient connection and timeout errors,
+   * HTTP 429 responses, and HTTP 5xx responses with bounded exponential
+   * backoff and jitter. Other errors are returned without retrying.
+   *
    * @param auth - The OAuth configuration object containing clientId, clientSecret, and tokenEndpoint
+   * @param retry - Optional retry policy for token endpoint requests. Defaults to 3 retries with full-jitter exponential backoff capped at 0.5, 1, and 2 seconds. Set `maxRetries` to 0 to disable retries.
    */
-  constructor(auth: ClientConfigAuth) {
+  constructor(auth: ClientConfigAuth, retry?: RetryOptions) {
     this.#auth = auth;
+    this.#retry = Object.freeze({ ...DEFAULT_RETRY_OPTIONS, ...(retry ?? {}) });
     this.authServer = {
       issuer: auth.tokenEndpoint,
       token_endpoint: auth.tokenEndpoint,
@@ -235,33 +302,63 @@ export class OAuth2ClientCredentials {
     const clientAuth = this.ClientSecretPost(this.auth.clientSecret);
     const parameters = new URLSearchParams();
 
-    const response = await this.clientCredentialsGrantRequest(
-      this.authServer,
-      client,
-      clientAuth,
-      parameters,
-    );
-    const result = await this.processClientCredentialsResponse(
-      this.authServer,
-      client,
-      response,
-    );
+    for (let attempt = 0; attempt <= this.#retry.maxRetries; attempt++) {
+      if (attempt > 0) {
+        const delay = retryDelay(attempt - 1, this.#retry);
+        await new Promise<void>((resolve) => setTimeout(resolve, delay * 1000));
+      }
 
-    if (!result.access_token) {
-      throw new Error("No access token received from OAuth server");
+      const canRetry = attempt < this.#retry.maxRetries;
+      let response: Response;
+
+      try {
+        response = await this.clientCredentialsGrantRequest(
+          this.authServer,
+          client,
+          clientAuth,
+          parameters,
+        );
+      } catch (error) {
+        // Caller cancellation (AbortError) is never retried
+        if (isAbortError(error)) throw error;
+        // Connection/network errors (TypeError from fetch) are retryable
+        if (canRetry && isRetryableConnectionError(error)) continue;
+        throw error;
+      }
+
+      // Check HTTP status before processing — oauth4webapi may convert
+      // server errors into opaque exceptions that lose the status code
+      if (isRetryableStatus(response.status)) {
+        if (canRetry) continue;
+        throw new Error(`Token endpoint returned HTTP ${response.status}`);
+      }
+
+      // Non-retryable status (2xx, 4xx) — process normally
+      const result = await this.processClientCredentialsResponse(
+        this.authServer,
+        client,
+        response,
+      );
+
+      if (!result.access_token) {
+        throw new Error("No access token received from OAuth server");
+      }
+
+      // Handle missing or invalid expires_in - default to 1 hour if not provided
+      // Note: expires_in of 0 is valid and means "immediately expired"
+      const expiresIn =
+        typeof result.expires_in === "number" && result.expires_in >= 0
+          ? result.expires_in
+          : DEFAULT_EXPIRE_IN_SECONDS;
+
+      return Object.freeze({
+        expiresAt: new Date(Date.now() + expiresIn * 1000),
+        accessToken: result.access_token,
+      });
     }
 
-    // Handle missing or invalid expires_in - default to 1 hour if not provided
-    // Note: expires_in of 0 is valid and means "immediately expired"
-    const expiresIn =
-      typeof result.expires_in === "number" && result.expires_in >= 0
-        ? result.expires_in
-        : DEFAULT_EXPIRE_IN_SECONDS;
-
-    return Object.freeze({
-      expiresAt: new Date(Date.now() + expiresIn * 1000),
-      accessToken: result.access_token,
-    });
+    // Unreachable with maxRetries >= 0, but satisfies TypeScript
+    throw new Error("Token request failed");
   }
 }
 
