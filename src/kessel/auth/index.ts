@@ -57,8 +57,14 @@ const isTimeoutError = (error: unknown): boolean =>
   errorName(error) === "DOMException" &&
   (error as { name?: string }).name === "TimeoutError";
 
-const isRetryableConnectionError = (error: unknown): boolean =>
-  errorName(error) === "TypeError";
+const isRetryableConnectionError = (error: unknown): boolean => {
+  if (errorName(error) !== "TypeError") return false;
+  // Only TypeErrors with a `cause` are transport/network errors from fetch.
+  // TypeErrors without a `cause` are validation/construction errors (e.g.,
+  // invalid URL, missing required argument) and must not be retried —
+  // they would consume the retry budget without ever sending an HTTP request.
+  return error != null && typeof error === "object" && "cause" in error;
+};
 
 const isRetryableStatus = (status: number): boolean =>
   status === 429 || (status >= 500 && status <= 599);
@@ -154,6 +160,9 @@ export class OAuth2ClientCredentials {
   readonly #retry: Readonly<Required<RetryOptions>>;
   private tokenCache?: RefreshTokenResponse;
   private pendingRefresh: Promise<Readonly<RefreshTokenResponse>> | null = null;
+  private refreshGeneration = 0;
+  private lastRefreshError: { generation: number; error: unknown } | null =
+    null;
   private authServer: oauth.AuthorizationServer;
   private initialized: boolean = false;
   private ClientSecretPost: typeof oauth.ClientSecretPost;
@@ -185,12 +194,23 @@ export class OAuth2ClientCredentials {
    */
   constructor(auth: ClientConfigAuth, retry?: RetryOptions) {
     this.#auth = auth;
-    this.#retry = Object.freeze({
-      maxRetries: retry?.maxRetries ?? DEFAULT_RETRY_OPTIONS.maxRetries,
-      baseDelay: retry?.baseDelay ?? DEFAULT_RETRY_OPTIONS.baseDelay,
-      maxDelay: retry?.maxDelay ?? DEFAULT_RETRY_OPTIONS.maxDelay,
-      jitter: retry?.jitter ?? DEFAULT_RETRY_OPTIONS.jitter,
-    });
+
+    const maxRetries = retry?.maxRetries ?? DEFAULT_RETRY_OPTIONS.maxRetries;
+    const baseDelay = retry?.baseDelay ?? DEFAULT_RETRY_OPTIONS.baseDelay;
+    const maxDelay = retry?.maxDelay ?? DEFAULT_RETRY_OPTIONS.maxDelay;
+    const jitter = retry?.jitter ?? DEFAULT_RETRY_OPTIONS.jitter;
+
+    if (!Number.isInteger(maxRetries) || maxRetries < 0) {
+      throw new RangeError("maxRetries must be a non-negative integer");
+    }
+    if (!Number.isFinite(baseDelay) || baseDelay < 0) {
+      throw new RangeError("baseDelay must be a finite non-negative number");
+    }
+    if (!Number.isFinite(maxDelay) || maxDelay < 0) {
+      throw new RangeError("maxDelay must be a finite non-negative number");
+    }
+
+    this.#retry = Object.freeze({ maxRetries, baseDelay, maxDelay, jitter });
     this.authServer = {
       issuer: auth.tokenEndpoint,
       token_endpoint: auth.tokenEndpoint,
@@ -244,6 +264,13 @@ export class OAuth2ClientCredentials {
    * stale token coalesce into a single OAuth token request, preventing
    * thundering herd floods against the SSO server.
    *
+   * When a coalesced refresh fails terminally (after exhausting retries), all
+   * callers that were waiting on that refresh share the same failure — they do
+   * not each start an independent retry cycle. A genuinely later caller (one
+   * that arrives after the failure) can start a fresh refresh attempt. This
+   * mirrors the Ruby SDK's generation-tracking approach and bounds total token
+   * requests to at most one full retry cycle per failure event.
+   *
    * @param forceRefresh - If true, bypasses cache and forces a new token request
    * @returns A promise that resolves to a RefreshTokenResponse object containing accessToken and expiresAt
    * @throws {Error} If token retrieval fails
@@ -255,20 +282,39 @@ export class OAuth2ClientCredentials {
       return this.tokenCache;
     }
 
+    // Record the generation when this caller observed a stale/missing token.
+    // All callers with the same generation share one terminal outcome.
+    const callerGeneration = this.refreshGeneration;
+
     while (this.pendingRefresh) {
       try {
         await this.pendingRefresh;
         return this.tokenCache;
       } catch {
-        // Another caller's refresh failed. Loop to either coalesce onto a
-        // new in-flight refresh or start our own.
+        // If our generation recorded a terminal failure, share it with the
+        // cohort rather than letting each waiter start an independent retry
+        // cycle. A later generation may have recovered — check the cache first.
+        if (this.lastRefreshError?.generation === callerGeneration) {
+          if (this.isCacheValid()) {
+            return this.tokenCache;
+          }
+          throw this.lastRefreshError.error;
+        }
+        // Generation advanced without a failure for our cohort, or a new
+        // refresh is already in flight — loop to coalesce onto it.
       }
     }
 
     this.pendingRefresh = this.refresh();
     try {
       this.tokenCache = await this.pendingRefresh;
+      this.lastRefreshError = null;
+      this.refreshGeneration++;
       return this.tokenCache;
+    } catch (error) {
+      this.lastRefreshError = { generation: callerGeneration, error };
+      this.refreshGeneration++;
+      throw error;
     } finally {
       this.pendingRefresh = null;
     }
@@ -350,12 +396,28 @@ export class OAuth2ClientCredentials {
         throw new Error(`Token endpoint returned HTTP ${response.status}`);
       }
 
-      // Non-retryable status (2xx, 4xx) — process normally
-      const result = await this.processClientCredentialsResponse(
-        this.authServer,
-        client,
-        response,
-      );
+      // Non-retryable status (2xx, 4xx) — process normally.
+      // Wrap response processing so that genuine transport/timeout errors
+      // during body reads are retried, while permanent failures (malformed
+      // JSON, missing tokens, caller cancellation) propagate immediately.
+      let result: Awaited<
+        ReturnType<typeof this.processClientCredentialsResponse>
+      >;
+      try {
+        result = await this.processClientCredentialsResponse(
+          this.authServer,
+          client,
+          response,
+        );
+      } catch (error) {
+        if (isAbortError(error)) throw error;
+        if (isTimeoutError(error)) {
+          if (canRetry) continue;
+          throw error;
+        }
+        if (canRetry && isRetryableConnectionError(error)) continue;
+        throw error;
+      }
 
       if (!result.access_token) {
         throw new Error("No access token received from OAuth server");

@@ -8,6 +8,12 @@ import {
 } from "../index";
 import type { RetryOptions } from "../index";
 
+/** Create a TypeError with a `cause` property (simulates Node.js fetch errors). */
+const fetchTypeError = (message: string, cause?: Error): TypeError =>
+  Object.assign(new TypeError(message), {
+    cause: cause ?? new Error("ECONNREFUSED"),
+  });
+
 // Mock oauth4webapi module
 const mockOAuth = {
   discoveryRequest: jest.fn(),
@@ -22,7 +28,7 @@ jest.mock("oauth4webapi", () => mockOAuth);
 
 describe("fetchOIDCDiscovery", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
     jest.resetModules();
   });
 
@@ -95,7 +101,7 @@ describe("OAuth2ClientCredentials", () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
     jest.resetModules();
   });
 
@@ -508,7 +514,7 @@ describe("OAuth2ClientCredentials", () => {
       expect(callCount).toBe(1);
     });
 
-    it("waiters retry independently when coalesced refresh fails", async () => {
+    it("waiters share terminal failure instead of each retrying independently", async () => {
       const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
       mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
@@ -528,44 +534,34 @@ describe("OAuth2ClientCredentials", () => {
       expect(rejected).toHaveLength(5);
       rejected.forEach((r) => expect(r.reason.message).toBe("SSO unavailable"));
 
-      // Each waiter cascades a retry when the previous refresh fails
-      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(5);
+      // All 5 callers share the same generation — only 1 refresh runs
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
     });
 
-    it("waiter succeeds when coalesced refresh fails but retry works", async () => {
+    it("all concurrent waiters share terminal failure from the same generation", async () => {
       const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
-      let callCount = 0;
       mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
       mockOAuth.clientCredentialsGrantRequest.mockImplementation(async () => {
-        callCount++;
         await new Promise((resolve) => setTimeout(resolve, 50));
-        if (callCount === 1) {
-          throw new Error("SSO unavailable");
-        }
-        return {};
-      });
-      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
-        access_token: "recovered-token",
-        expires_in: 3600,
+        throw new Error("SSO unavailable");
       });
 
+      // All 5 callers arrive in the same generation
       const promises = Array.from({ length: 5 }, () =>
         tokenRetriever.getToken(),
       );
       const results = await Promise.allSettled(promises);
 
+      // All share the terminal failure — no independent retry cascades
       const rejected = results.filter((r) => r.status === "rejected");
-      const fulfilled = results.filter((r) => r.status === "fulfilled");
-
-      expect(rejected).toHaveLength(1);
-      expect(fulfilled).toHaveLength(4);
-      fulfilled.forEach((r) =>
-        expect((r as PromiseFulfilledResult<any>).value.accessToken).toBe(
-          "recovered-token",
+      expect(rejected).toHaveLength(5);
+      rejected.forEach((r) =>
+        expect((r as PromiseRejectedResult).reason.message).toBe(
+          "SSO unavailable",
         ),
       );
-      expect(callCount).toBe(2);
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
     });
 
     it("allows retry after a failed coalesced refresh", async () => {
@@ -651,6 +647,87 @@ describe("OAuth2ClientCredentials", () => {
         expect(token.accessToken).toBe("short-lived-token"),
       );
       expect(callCount).toBe(1);
+    });
+  });
+
+  describe("Concurrent Failure Sharing (Generation Tracking)", () => {
+    it("later caller can retry after concurrent cohort fails", async () => {
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
+
+      let callCount = 0;
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockImplementation(async () => {
+        callCount++;
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        if (callCount === 1) throw new Error("SSO unavailable");
+        return {};
+      });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "recovered-token",
+        expires_in: 3600,
+      });
+
+      // First batch: all 3 callers arrive in generation 0. Refresh fails → all share failure.
+      const batch1 = Array.from({ length: 3 }, () => tokenRetriever.getToken());
+      const results1 = await Promise.allSettled(batch1);
+      expect(results1.every((r) => r.status === "rejected")).toBe(true);
+      expect(callCount).toBe(1);
+
+      // Second call: arrives in generation 1. Starts fresh refresh → succeeds.
+      const token = await tokenRetriever.getToken();
+      expect(token.accessToken).toBe("recovered-token");
+      expect(callCount).toBe(2);
+    });
+
+    it("shares failure with exact token-request count", async () => {
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
+
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockRejectedValue(
+        fetchTypeError("fetch failed"),
+      );
+
+      // 10 concurrent callers — all in generation 0
+      const promises = Array.from({ length: 10 }, () =>
+        tokenRetriever.getToken(),
+      );
+      const results = await Promise.allSettled(promises);
+
+      // All 10 share the failure
+      expect(results.filter((r) => r.status === "rejected")).toHaveLength(10);
+      // Only 1 refresh ran (with default 3 retries = 4 total attempts)
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(4);
+    });
+
+    it("recovery after shared failure — later generation uses new cache", async () => {
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
+
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest
+        .mockRejectedValueOnce(new Error("SSO unavailable"))
+        .mockImplementation(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          return {};
+        });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "recovered-token",
+        expires_in: 3600,
+      });
+
+      // First call: fails (generation 0)
+      await expect(tokenRetriever.getToken()).rejects.toThrow(
+        "SSO unavailable",
+      );
+
+      // Sequential second call: new generation, starts fresh, succeeds
+      const token = await tokenRetriever.getToken();
+      expect(token.accessToken).toBe("recovered-token");
+
+      // Third call: uses cache
+      const cached = await tokenRetriever.getToken();
+      expect(cached.accessToken).toBe("recovered-token");
+      // Total: 1 failed + 1 succeeded = 2 SSO calls
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -881,13 +958,73 @@ describe("OAuth2ClientCredentials", () => {
       );
       expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
     });
+
+    it("rejects negative maxRetries", () => {
+      expect(
+        () => new OAuth2ClientCredentials(mockAuth, { maxRetries: -1 }),
+      ).toThrow(RangeError);
+    });
+
+    it("rejects non-integer maxRetries", () => {
+      expect(
+        () => new OAuth2ClientCredentials(mockAuth, { maxRetries: 1.5 }),
+      ).toThrow(RangeError);
+    });
+
+    it("rejects NaN maxRetries", () => {
+      expect(
+        () => new OAuth2ClientCredentials(mockAuth, { maxRetries: NaN }),
+      ).toThrow(RangeError);
+    });
+
+    it("rejects Infinity baseDelay", () => {
+      expect(
+        () => new OAuth2ClientCredentials(mockAuth, { baseDelay: Infinity }),
+      ).toThrow(RangeError);
+    });
+
+    it("rejects negative baseDelay", () => {
+      expect(
+        () => new OAuth2ClientCredentials(mockAuth, { baseDelay: -0.5 }),
+      ).toThrow(RangeError);
+    });
+
+    it("rejects NaN maxDelay", () => {
+      expect(
+        () => new OAuth2ClientCredentials(mockAuth, { maxDelay: NaN }),
+      ).toThrow(RangeError);
+    });
+
+    it("rejects -Infinity maxDelay", () => {
+      expect(
+        () => new OAuth2ClientCredentials(mockAuth, { maxDelay: -Infinity }),
+      ).toThrow(RangeError);
+    });
+
+    it("preserves per-field undefined defaults", () => {
+      // Only maxRetries set — baseDelay, maxDelay, jitter should use defaults
+      const credentials = new OAuth2ClientCredentials(mockAuth, {
+        maxRetries: 0,
+      });
+      expect(credentials.auth).toBe(mockAuth);
+    });
+
+    it("accepts maxRetries: 0 and jitter 'none'", () => {
+      expect(
+        () =>
+          new OAuth2ClientCredentials(mockAuth, {
+            maxRetries: 0,
+            jitter: "none",
+          }),
+      ).not.toThrow();
+    });
   });
 
   describe("Retry on Transient Failures", () => {
     it("retries on connection error (TypeError) and succeeds", async () => {
       mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
       mockOAuth.clientCredentialsGrantRequest
-        .mockRejectedValueOnce(new TypeError("fetch failed"))
+        .mockRejectedValueOnce(fetchTypeError("fetch failed"))
         .mockResolvedValueOnce({ status: 200 });
       mockOAuth.processClientCredentialsResponse.mockResolvedValue({
         access_token: "recovered-token",
@@ -989,7 +1126,7 @@ describe("OAuth2ClientCredentials", () => {
     it("retries multiple times before success", async () => {
       mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
       mockOAuth.clientCredentialsGrantRequest
-        .mockRejectedValueOnce(new TypeError("fetch failed"))
+        .mockRejectedValueOnce(fetchTypeError("fetch failed"))
         .mockResolvedValueOnce({ status: 503 })
         .mockResolvedValueOnce({ status: 429 })
         .mockResolvedValueOnce({ status: 200 });
@@ -1008,7 +1145,7 @@ describe("OAuth2ClientCredentials", () => {
     it("throws after exhausting all retries on connection errors", async () => {
       mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
       mockOAuth.clientCredentialsGrantRequest.mockRejectedValue(
-        new TypeError("fetch failed"),
+        fetchTypeError("fetch failed"),
       );
 
       const credentials = new OAuth2ClientCredentials(mockAuth, {
@@ -1111,6 +1248,90 @@ describe("OAuth2ClientCredentials", () => {
       );
       expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
     });
+
+    it("does not retry TypeError without cause (validation/construction error)", async () => {
+      // TypeErrors without a cause are permanent — e.g., invalid URL or missing
+      // argument that fails before an HTTP request is ever sent.
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockRejectedValue(
+        new TypeError("Invalid URL"),
+      );
+
+      const credentials = new OAuth2ClientCredentials(mockAuth, {
+        maxRetries: 3,
+      });
+
+      await expect(credentials.getToken()).rejects.toThrow("Invalid URL");
+      // Permanent error — no retries, single attempt
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not retry malformed JSON during response processing", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockResolvedValue({
+        status: 200,
+      });
+      mockOAuth.processClientCredentialsResponse.mockRejectedValue(
+        new SyntaxError("Unexpected token < in JSON at position 0"),
+      );
+
+      const credentials = new OAuth2ClientCredentials(mockAuth, {
+        maxRetries: 3,
+      });
+
+      await expect(credentials.getToken()).rejects.toThrow("Unexpected token");
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("Response-Body Failure Retry", () => {
+    it("retries transport error during response body read", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockResolvedValue({
+        status: 200,
+      });
+      // First call: body read fails with transport TypeError (has cause)
+      // Second call: succeeds
+      mockOAuth.processClientCredentialsResponse
+        .mockRejectedValueOnce(
+          fetchTypeError("terminated", new Error("other side closed")),
+        )
+        .mockResolvedValueOnce({
+          access_token: "body-retry-token",
+          expires_in: 3600,
+        });
+
+      const credentials = new OAuth2ClientCredentials(mockAuth, {
+        maxRetries: 2,
+      });
+      const token = await credentials.getToken();
+
+      expect(token.accessToken).toBe("body-retry-token");
+      // 2 grant requests (both succeed at HTTP level), 2 process calls
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(2);
+      expect(mockOAuth.processClientCredentialsResponse).toHaveBeenCalledTimes(
+        2,
+      );
+    });
+
+    it("does not retry AbortError during response body read", async () => {
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockResolvedValue({
+        status: 200,
+      });
+      mockOAuth.processClientCredentialsResponse.mockRejectedValue(
+        new DOMException("The operation was aborted", "AbortError"),
+      );
+
+      const credentials = new OAuth2ClientCredentials(mockAuth, {
+        maxRetries: 3,
+      });
+
+      await expect(credentials.getToken()).rejects.toThrow(
+        "The operation was aborted",
+      );
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("Retry with Thundering Herd", () => {
@@ -1205,7 +1426,7 @@ describe("oauth2AuthRequest", () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
     jest.resetModules();
   });
 

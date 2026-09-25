@@ -163,15 +163,18 @@ describe("OAuth2ClientCredentials retry (integration)", () => {
     });
 
     it("recovers from ECONNREFUSED when server becomes available", async () => {
-      // Allocate a port, close the server, then reopen — first request
-      // gets ECONNREFUSED (TypeError from fetch), retry succeeds.
+      // COORDINATION: Allocate a port, close the server immediately.
+      // ECONNREFUSED is near-instant (< 5ms on loopback), so we delay
+      // the server start by 50ms to guarantee the first attempt fails
+      // before the server is listening. The retry baseDelay (1.0s) is
+      // 20x the server start delay, preventing any timing race.
       const tempServer = net.createServer();
       const port = await listenOnRandomPort(tempServer);
       await closeServer(tempServer);
 
       let connectionCount = 0;
+      let serverListeningAt = 0;
 
-      // Start a real server after a short delay
       const realServer = net.createServer((socket) => {
         connectionCount++;
         let data = "";
@@ -187,33 +190,39 @@ describe("OAuth2ClientCredentials retry (integration)", () => {
         });
       });
 
-      // Delay server start so the first request fails
+      // Delay server start — ECONNREFUSED (~instant) happens before this
       const serverReady = new Promise<void>((resolve) => {
         setTimeout(() => {
-          realServer.listen(port, "127.0.0.1", () => resolve());
-        }, 100);
+          realServer.listen(port, "127.0.0.1", () => {
+            serverListeningAt = Date.now();
+            resolve();
+          });
+        }, 50);
       });
 
       try {
+        const requestStartedAt = Date.now();
         const credentials = new OAuth2ClientCredentials(
           {
             clientId: "test-client",
             clientSecret: "test-secret",
             tokenEndpoint: `http://127.0.0.1:${port}/token`,
           },
-          { maxRetries: 3, baseDelay: 0.15, maxDelay: 0.5, jitter: "none" },
+          // Large baseDelay ensures retry fires well after server is up
+          { maxRetries: 3, baseDelay: 1.0, maxDelay: 2.0, jitter: "none" },
         );
 
-        // Start token request before server is ready so the first attempt
-        // hits a closed port (ECONNREFUSED), exercising connection-error
-        // retries. The retry fires after baseDelay (150ms), by which time
-        // the server is listening (started after 100ms).
         const tokenPromise = credentials.getToken();
         await serverReady;
         const token = await tokenPromise;
+
         expect(token.accessToken).toBe("after-connrefused-token");
-        // Only the successful retry connects to the server
+        // Exactly 1 connection to the server (the successful retry).
+        // The first attempt failed (ECONNREFUSED) — proven by:
+        // 1. connectionCount === 1 (only retry connected)
+        // 2. server wasn't listening when request started
         expect(connectionCount).toBe(1);
+        expect(serverListeningAt).toBeGreaterThan(requestStartedAt);
       } finally {
         await closeServer(realServer);
       }
@@ -417,6 +426,107 @@ describe("OAuth2ClientCredentials retry (integration)", () => {
         expect(requestCount).toBe(3);
         // Token expiry reflects the server response
         expect(token.expiresAt.getTime()).toBeGreaterThan(Date.now());
+      } finally {
+        await closeServer(server);
+      }
+    });
+  });
+
+  describe("discarded-response cleanup", () => {
+    it("discards 5xx response body before retrying", async () => {
+      let requestCount = 0;
+
+      // Server returns a 503 with a large body on the first request,
+      // then a 200 on the second. If the 503 body is not discarded,
+      // the connection would hang or leak.
+      const server = net.createServer((socket) => {
+        let data = "";
+        socket.on("data", (chunk) => {
+          data += chunk.toString();
+          if (data.includes("\r\n\r\n")) {
+            requestCount++;
+            if (requestCount === 1) {
+              const largeBody = JSON.stringify({
+                error: "service_unavailable",
+                detail: "x".repeat(10000),
+              });
+              writeHttpResponse(socket, 503, largeBody);
+            } else {
+              writeHttpResponse(
+                socket,
+                200,
+                tokenResponseBody("after-discard-token"),
+              );
+            }
+          }
+        });
+      });
+
+      const port = await listenOnRandomPort(server);
+
+      try {
+        const credentials = new OAuth2ClientCredentials(
+          {
+            clientId: "test-client",
+            clientSecret: "test-secret",
+            tokenEndpoint: `http://127.0.0.1:${port}/token`,
+          },
+          { maxRetries: 2, baseDelay: 0.05, maxDelay: 0.1, jitter: "none" },
+        );
+
+        const token = await credentials.getToken();
+
+        expect(token.accessToken).toBe("after-discard-token");
+        expect(requestCount).toBe(2);
+      } finally {
+        await closeServer(server);
+      }
+    });
+  });
+
+  describe("defaults and partial options", () => {
+    it("uses default retry (3 retries) when no retry options provided", async () => {
+      let requestCount = 0;
+
+      // Fail 3 times (initial + 2 retries), succeed on 4th (3rd retry)
+      const server = net.createServer((socket) => {
+        let data = "";
+        socket.on("data", (chunk) => {
+          data += chunk.toString();
+          if (data.includes("\r\n\r\n")) {
+            requestCount++;
+            if (requestCount <= 3) {
+              writeHttpResponse(
+                socket,
+                503,
+                JSON.stringify({ error: "unavailable" }),
+              );
+            } else {
+              writeHttpResponse(
+                socket,
+                200,
+                tokenResponseBody("default-retry-token"),
+              );
+            }
+          }
+        });
+      });
+
+      const port = await listenOnRandomPort(server);
+
+      try {
+        // No retry options — uses defaults (maxRetries: 3)
+        const credentials = new OAuth2ClientCredentials({
+          clientId: "test-client",
+          clientSecret: "test-secret",
+          tokenEndpoint: `http://127.0.0.1:${port}/token`,
+        });
+
+        const token = await credentials.getToken();
+
+        expect(token.accessToken).toBe("default-retry-token");
+        // 1 initial + 3 retries = 4 total, success on 4th
+        expect(requestCount).toBe(4);
       } finally {
         await closeServer(server);
       }

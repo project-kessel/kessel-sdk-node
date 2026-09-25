@@ -38,6 +38,19 @@ const check_request: CheckRequest = {
       process.env.AUTH_DISCOVERY_ISSUER_URL!,
     );
 
+    // Default retry: 3 retries, 0.5s base delay, 2.0s max delay, full jitter.
+    // Retry applies only to transient token endpoint failures (connection
+    // errors, HTTP 429, HTTP 5xx). Client errors (400/401/403) are not retried.
+    // Pass a second argument to customise the retry policy:
+    //
+    //   new OAuth2ClientCredentials(auth, {
+    //     maxRetries: 5,   // More retries for unreliable networks
+    //     baseDelay: 1.0,  // Start with 1 second delay
+    //     maxDelay: 10.0,  // Cap at 10 seconds
+    //     jitter: "full",  // Randomize to avoid thundering herd
+    //   })
+    //
+    // Set maxRetries to 0 to disable retries entirely.
     const oAuth2ClientCredentials = new OAuth2ClientCredentials({
       clientId: process.env.AUTH_CLIENT_ID!,
       clientSecret: process.env.AUTH_CLIENT_SECRET!,
