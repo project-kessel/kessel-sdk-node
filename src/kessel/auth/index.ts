@@ -6,6 +6,10 @@ const EXPIRATION_WINDOW_MILLI = 300000; // 5 minutes in milliseconds
 const DEFAULT_EXPIRE_IN_SECONDS = 3600; // 1 hour in seconds
 const REQUEST_TIMEOUT_MS = 30_000; // 30 seconds per-attempt timeout
 
+// Node.js setTimeout fires immediately for values > 2^31-1 ms ≈ 2,147,483,647 ms.
+// Clamp retry delays to this safe maximum to prevent silent misbehavior.
+const MAX_SAFE_DELAY_SECONDS = 2_147_483;
+
 interface RefreshTokenResponse {
   accessToken: string;
   expiresAt: Date;
@@ -59,15 +63,32 @@ const isTimeoutError = (error: unknown): boolean =>
 
 const isRetryableConnectionError = (error: unknown): boolean => {
   if (errorName(error) !== "TypeError") return false;
-  // Only TypeErrors with a `cause` are transport/network errors from fetch.
-  // TypeErrors without a `cause` are validation/construction errors (e.g.,
-  // invalid URL, missing required argument) and must not be retried —
-  // they would consume the retry budget without ever sending an HTTP request.
-  return error != null && typeof error === "object" && "cause" in error;
+  if (error == null || typeof error !== "object") return false;
+  // Only TypeErrors with a defined `cause` are transport/network errors from
+  // fetch (e.g., TypeError: fetch failed { cause: Error: ECONNREFUSED }).
+  // `"cause" in error` alone is insufficient: oauth4webapi may set `cause`
+  // to undefined on argument/configuration TypeErrors (e.g., empty client ID).
+  // Those must not be retried — they consume the budget without sending a
+  // request.  Require the cause to be actually defined.
+  return "cause" in error && (error as { cause: unknown }).cause !== undefined;
 };
 
 const isRetryableStatus = (status: number): boolean =>
   status === 429 || (status >= 500 && status <= 599);
+
+/**
+ * Check whether an error wraps a retryable transport or timeout failure
+ * in its cause chain.  oauth4webapi wraps mid-body transport failures as
+ * OperationProcessingError (OAUTH_PARSE_ERROR) with a nested TypeError
+ * (UND_ERR_SOCKET) or TimeoutError cause.  Malformed JSON, OAuth validation
+ * errors, missing tokens, and caller cancellation are NOT retryable.
+ */
+const hasRetryableTransportCause = (error: unknown): boolean => {
+  if (error == null || typeof error !== "object") return false;
+  const cause = (error as { cause?: unknown }).cause;
+  if (cause === undefined) return false;
+  return isRetryableConnectionError(cause) || isTimeoutError(cause);
+};
 
 const retryDelay = (
   retryIndex: number,
@@ -78,7 +99,10 @@ const retryDelay = (
     options.maxDelay,
     options.baseDelay * Math.pow(2, Math.min(retryIndex, 30)),
   );
-  return options.jitter === "full" ? Math.random() * cap : cap;
+  const delay = options.jitter === "full" ? Math.random() * cap : cap;
+  // Clamp to MAX_SAFE_DELAY_SECONDS — values above Node's 2^31-1 ms timer
+  // limit would cause setTimeout to fire almost immediately.
+  return Math.min(delay, MAX_SAFE_DELAY_SECONDS);
 };
 
 export interface ClientConfigAuth {
@@ -293,11 +317,8 @@ export class OAuth2ClientCredentials {
       } catch {
         // If our generation recorded a terminal failure, share it with the
         // cohort rather than letting each waiter start an independent retry
-        // cycle. A later generation may have recovered — check the cache first.
+        // cycle. A later generation can start a fresh refresh attempt.
         if (this.lastRefreshError?.generation === callerGeneration) {
-          if (this.isCacheValid()) {
-            return this.tokenCache;
-          }
           throw this.lastRefreshError.error;
         }
         // Generation advanced without a failure for our cohort, or a new
@@ -416,6 +437,11 @@ export class OAuth2ClientCredentials {
           throw error;
         }
         if (canRetry && isRetryableConnectionError(error)) continue;
+        // Wrapped transport/timeout errors: oauth4webapi wraps mid-body
+        // failures as OperationProcessingError with a nested TypeError or
+        // TimeoutError cause.  Retry genuine transport failures; let
+        // malformed JSON, OAuth validation, and cancellation propagate.
+        if (canRetry && hasRetryableTransportCause(error)) continue;
         throw error;
       }
 

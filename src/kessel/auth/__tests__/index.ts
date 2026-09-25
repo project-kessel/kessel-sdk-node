@@ -699,6 +699,97 @@ describe("OAuth2ClientCredentials", () => {
       expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(4);
     });
 
+    it("forced-refresh cohort all reject when refresh fails with valid cache", async () => {
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
+
+      // Pre-seed a valid token far from expiry
+      (tokenRetriever as any).tokenCache = {
+        accessToken: "still-valid-token",
+        expiresAt: new Date(Date.now() + 3600000),
+      };
+
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        throw new Error("credentials revoked");
+      });
+
+      // All 5 use forceRefresh — none should fall back to cached token
+      const promises = Array.from({ length: 5 }, () =>
+        tokenRetriever.getToken(true),
+      );
+      const results = await Promise.allSettled(promises);
+
+      const rejected = results.filter(
+        (r): r is PromiseRejectedResult => r.status === "rejected",
+      );
+      expect(rejected).toHaveLength(5);
+      rejected.forEach((r) =>
+        expect(r.reason.message).toBe("credentials revoked"),
+      );
+      // Coalesced — only 1 refresh attempt
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it("later caller recovers after forced-refresh cohort failure", async () => {
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
+
+      // Pre-seed a valid token
+      (tokenRetriever as any).tokenCache = {
+        accessToken: "old-valid-token",
+        expiresAt: new Date(Date.now() + 3600000),
+      };
+
+      let callCount = 0;
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockImplementation(async () => {
+        callCount++;
+        if (callCount === 1) throw new Error("SSO unavailable");
+        return {};
+      });
+      mockOAuth.processClientCredentialsResponse.mockResolvedValue({
+        access_token: "recovered-token",
+        expires_in: 3600,
+      });
+
+      // First: forced refresh fails
+      await expect(tokenRetriever.getToken(true)).rejects.toThrow(
+        "SSO unavailable",
+      );
+      expect(callCount).toBe(1);
+
+      // Later caller: new generation, starts fresh refresh, succeeds
+      const token = await tokenRetriever.getToken(true);
+      expect(token.accessToken).toBe("recovered-token");
+      expect(callCount).toBe(2);
+    });
+
+    it("normal getToken still returns cached token after forced-refresh failure", async () => {
+      const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
+
+      // Pre-seed a valid token
+      (tokenRetriever as any).tokenCache = {
+        accessToken: "cached-token",
+        expiresAt: new Date(Date.now() + 3600000),
+      };
+
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockRejectedValue(
+        new Error("SSO unavailable"),
+      );
+
+      // Forced refresh fails
+      await expect(tokenRetriever.getToken(true)).rejects.toThrow(
+        "SSO unavailable",
+      );
+
+      // Normal getToken (no forceRefresh) — returns cached token (still valid)
+      const token = await tokenRetriever.getToken();
+      expect(token.accessToken).toBe("cached-token");
+      // No new SSO call — used cache
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
+    });
+
     it("recovery after shared failure — later generation uses new cache", async () => {
       const tokenRetriever = new OAuth2ClientCredentials(mockAuth);
 
@@ -1266,6 +1357,25 @@ describe("OAuth2ClientCredentials", () => {
       expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
     });
 
+    it("does not retry TypeError with cause set to undefined (argument error)", async () => {
+      // oauth4webapi's empty-client-ID TypeError has a `cause` property set
+      // to undefined. `"cause" in error` returns true, but the error is a
+      // permanent argument error — not a transient network failure.
+      const argError = Object.assign(new TypeError("invalid client_id"), {
+        cause: undefined,
+      });
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockRejectedValue(argError);
+
+      const credentials = new OAuth2ClientCredentials(mockAuth, {
+        maxRetries: 1,
+      });
+
+      await expect(credentials.getToken()).rejects.toThrow("invalid client_id");
+      // Single attempt — permanent error preserved without backoff
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
+    });
+
     it("does not retry malformed JSON during response processing", async () => {
       mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
       mockOAuth.clientCredentialsGrantRequest.mockResolvedValue({
@@ -1312,6 +1422,126 @@ describe("OAuth2ClientCredentials", () => {
       expect(mockOAuth.processClientCredentialsResponse).toHaveBeenCalledTimes(
         2,
       );
+    });
+
+    it("retries wrapped transport error during response body read (OperationProcessingError)", async () => {
+      // oauth4webapi wraps mid-body transport failures as
+      // OperationProcessingError with a nested TypeError cause.
+      const innerCause = fetchTypeError(
+        "terminated",
+        new Error("UND_ERR_SOCKET"),
+      );
+      const wrappedError = Object.assign(
+        new Error("OAUTH_PARSE_ERROR: body read failed"),
+        { code: "OAUTH_PARSE_ERROR", cause: innerCause },
+      );
+
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockResolvedValue({
+        status: 200,
+      });
+      mockOAuth.processClientCredentialsResponse
+        .mockRejectedValueOnce(wrappedError)
+        .mockResolvedValueOnce({
+          access_token: "wrapped-retry-token",
+          expires_in: 3600,
+        });
+
+      const credentials = new OAuth2ClientCredentials(mockAuth, {
+        maxRetries: 2,
+      });
+      const token = await credentials.getToken();
+
+      expect(token.accessToken).toBe("wrapped-retry-token");
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(2);
+      expect(mockOAuth.processClientCredentialsResponse).toHaveBeenCalledTimes(
+        2,
+      );
+    });
+
+    it("retries wrapped TimeoutError cause during response body read", async () => {
+      const timeoutCause = new DOMException(
+        "The operation timed out",
+        "TimeoutError",
+      );
+      const wrappedError = Object.assign(
+        new Error("OAUTH_PARSE_ERROR: body read timed out"),
+        { code: "OAUTH_PARSE_ERROR", cause: timeoutCause },
+      );
+
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockResolvedValue({
+        status: 200,
+      });
+      mockOAuth.processClientCredentialsResponse
+        .mockRejectedValueOnce(wrappedError)
+        .mockResolvedValueOnce({
+          access_token: "timeout-wrapped-token",
+          expires_in: 3600,
+        });
+
+      const credentials = new OAuth2ClientCredentials(mockAuth, {
+        maxRetries: 2,
+      });
+      const token = await credentials.getToken();
+
+      expect(token.accessToken).toBe("timeout-wrapped-token");
+      expect(mockOAuth.processClientCredentialsResponse).toHaveBeenCalledTimes(
+        2,
+      );
+    });
+
+    it("does not retry wrapped malformed JSON cause during response body read", async () => {
+      // OperationProcessingError wrapping a SyntaxError — NOT transient
+      const wrappedError = Object.assign(
+        new Error("OAUTH_PARSE_ERROR: malformed body"),
+        { code: "OAUTH_PARSE_ERROR", cause: new SyntaxError("Unexpected <") },
+      );
+
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockResolvedValue({
+        status: 200,
+      });
+      mockOAuth.processClientCredentialsResponse.mockRejectedValue(
+        wrappedError,
+      );
+
+      const credentials = new OAuth2ClientCredentials(mockAuth, {
+        maxRetries: 3,
+      });
+
+      await expect(credentials.getToken()).rejects.toThrow(
+        "OAUTH_PARSE_ERROR: malformed body",
+      );
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not retry wrapped AbortError cause during response body read", async () => {
+      // OperationProcessingError wrapping caller cancellation — NOT transient
+      const wrappedError = Object.assign(
+        new Error("OAUTH_PARSE_ERROR: aborted"),
+        {
+          code: "OAUTH_PARSE_ERROR",
+          cause: new DOMException("The operation was aborted", "AbortError"),
+        },
+      );
+
+      mockOAuth.ClientSecretPost.mockReturnValue("mock-client-auth");
+      mockOAuth.clientCredentialsGrantRequest.mockResolvedValue({
+        status: 200,
+      });
+      mockOAuth.processClientCredentialsResponse.mockRejectedValue(
+        wrappedError,
+      );
+
+      const credentials = new OAuth2ClientCredentials(mockAuth, {
+        maxRetries: 3,
+      });
+
+      await expect(credentials.getToken()).rejects.toThrow(
+        "OAUTH_PARSE_ERROR: aborted",
+      );
+      expect(mockOAuth.clientCredentialsGrantRequest).toHaveBeenCalledTimes(1);
     });
 
     it("does not retry AbortError during response body read", async () => {
