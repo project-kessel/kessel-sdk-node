@@ -32,3 +32,9 @@ jobs:
         run: npm run build
       - name: Test
         run: npm test
+
+  security-audit:
+    name: Security Audit
+    permissions:
+      contents: read
+    uses: ./.github/workflows/security-audit.yml
