@@ -24,3 +24,5 @@ import { clientBuilderForStub } from "..";
 export const ClientBuilder = clientBuilderForStub(
   KesselInventoryHealthServiceClient,
 );
+
+export type { KeepaliveOptions } from "..";

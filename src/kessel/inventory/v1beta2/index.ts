@@ -4,25 +4,29 @@ import { clientBuilderForStub } from "..";
 /**
  * Client builder for the Kessel Inventory Service (v1beta2).
  *
- * This builder provides a fluent API for creating and configuring gRPC clients
- * for the Kessel Inventory Service. It supports all standard configuration options
- * including credentials, authentication, keep-alive settings, and channel options.
+ * Construct a client for a gRPC target and configure authentication and keepalive
+ * settings with the fluent methods inherited from the shared `ClientBuilder`.
+ * `build()` returns the callback-based client; `buildAsync()` returns its
+ * Promise-based unary-method wrapper.
  *
  * @example
  * ```typescript
- * import { ClientBuilder } from "@project-kessel/kessel-sdk/inventory/v1beta2";
+ * import {
+ *   ClientBuilder,
+ *   type KeepaliveOptions,
+ * } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2";
  *
- * const client = ClientBuilder.builder()
- *   .withTarget("localhost:9000")
- *   .withInsecureCredentials()
- *   .build();
+ * const keepalive: KeepaliveOptions = { interval: 60_000 };
+ * const client = new ClientBuilder("localhost:9000")
+ *   .insecure()
+ *   .keepalive(keepalive)
+ *   .buildAsync();
  *
- * // Use the client
- * const response = await client.check({
- *   subject: { id: "user123", type: "user" },
- *   resource: { id: "doc456", type: "document" },
- *   action: "read"
- * });
+ * // This config-only sample closes immediately. In an app, reuse the client
+ * // and close it once on shutdown.
+ * client.close();
  * ```
  */
 export const ClientBuilder = clientBuilderForStub(KesselInventoryServiceClient);
+
+export type { KeepaliveOptions } from "..";
