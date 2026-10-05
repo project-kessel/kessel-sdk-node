@@ -77,7 +77,7 @@ export const ClientBuilder = clientBuilderForStub(KesselInventoryServiceClient);
 - The shared builder applies gRPC keepalive defaults of 45,000 ms interval, 10,000 ms timeout, and pings permitted without active calls.
 - `.keepalive()` updates only defined fields; `interval` and `timeout` must be finite integer milliseconds in the range 1 through 2,147,483,647, and `permitWithoutCalls` must be a boolean.
 - Pass only the supported `grpc.keepalive_time_ms`, `grpc.keepalive_timeout_ms`, and `grpc.keepalive_permit_without_calls` channel options. grpc-js does not expose a supported `grpc.http2.max_pings_without_data` option.
-- Keepalive is transport-level behavior, not a health check, retry policy, or guarantee of load-balancer idle retention. Release/rollout is blocked pending RHCLOUD-51673 server/gateway acceptance of the 45-second idle keepalive.
+- Keepalive is transport-level behavior, not a health check, retry policy, or guarantee of load-balancer idle retention.
 
 ## Credential Validation
 

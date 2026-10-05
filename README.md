@@ -148,9 +148,7 @@ Omit `.keepalive()` to use the defaults. Keepalive is transport-level ping
 configuration, not an application health check, retry policy, or guarantee that
 a load balancer preserves an idle connection. The `grpc-js` channel API does not
 expose a supported `grpc.http2.max_pings_without_data` option, so the SDK does
-not set an invented or portable unlimited-ping value. Release and rollout remain
-blocked pending RHCLOUD-51673 confirmation that the server/gateway accepts the
-45-second idle keepalive.
+not set an invented or portable unlimited-ping value.
 
 ## Listing Workspaces
 
