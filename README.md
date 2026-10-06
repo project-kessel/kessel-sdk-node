@@ -7,6 +7,7 @@ A TypeScript/JavaScript SDK for connecting to Kessel services using gRPC with a 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Authentication](#authentication)
+- [Keepalive](#keepalive)
 - [Examples](#examples)
 - [Project Structure](#project-structure)
 - [Development](#development)
@@ -112,6 +113,42 @@ new ClientBuilder(target)
   .authenticated(callCredentials, channelCredentials)
   .buildAsync();
 ```
+
+## Keepalive
+
+Both `build()` and `buildAsync()` use gRPC keepalive defaults of a 45,000 ms
+interval, a 10,000 ms timeout, and `permitWithoutCalls: true`. Override selected
+fields with `.keepalive()`; omitted or `undefined` fields retain their current
+values, and `false` is applied as-is. Durations must be finite integers from 1
+through 2,147,483,647 milliseconds. Invalid values (including `null` at runtime)
+throw an `Error` without partially changing the builder.
+
+```typescript
+import {
+  ClientBuilder,
+  type KeepaliveOptions,
+} from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2";
+
+const options: KeepaliveOptions = {
+  interval: 30_000,
+  timeout: 8_000,
+  permitWithoutCalls: false,
+};
+const client = new ClientBuilder("localhost:9000")
+  .insecure()
+  .keepalive(options)
+  .buildAsync();
+
+// This config-only snippet closes immediately. In an app, reuse the client and
+// close it once on shutdown.
+client.close();
+```
+
+Omit `.keepalive()` to use the defaults. Keepalive is transport-level ping
+configuration, not an application health check, retry policy, or guarantee that
+a load balancer preserves an idle connection. The `grpc-js` channel API does not
+expose a supported `grpc.http2.max_pings_without_data` option, so the SDK does
+not set an invented or portable unlimited-ping value.
 
 ## Listing Workspaces
 

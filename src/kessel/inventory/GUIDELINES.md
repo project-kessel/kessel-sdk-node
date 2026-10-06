@@ -72,19 +72,28 @@ export const ClientBuilder = clientBuilderForStub(KesselInventoryServiceClient);
 - `buildAsync()` wraps it with `promisifyClient()` -- unary methods become Promise-based.
 - Streaming methods (`streamedListObjects`, `streamedListSubjects`) are NOT promisified -- they already return `AsyncIterable`.
 
+## Keepalive
+
+- The shared builder applies gRPC keepalive defaults of 45,000 ms interval, 10,000 ms timeout, and pings permitted without active calls.
+- `.keepalive()` updates only defined fields; `interval` and `timeout` must be finite integer milliseconds in the range 1 through 2,147,483,647, and `permitWithoutCalls` must be a boolean.
+- Pass only the supported `grpc.keepalive_time_ms`, `grpc.keepalive_timeout_ms`, and `grpc.keepalive_permit_without_calls` channel options. grpc-js does not expose a supported `grpc.http2.max_pings_without_data` option.
+- Keepalive is transport-level behavior, not a health check, retry policy, or guarantee of load-balancer idle retention.
+
 ## Credential Validation
 
 `validateCredentials()` is called synchronously in every auth method. It throws `"Invalid credential configuration: can not authenticate with insecure channel"` when call credentials are combined with an insecure channel. This is a build-time check, not a call-time check.
 
 ## Testing Conventions
 
-Tests are in `v1beta2/__tests__/index.ts`. They do NOT start a real gRPC server. They verify:
+Tests are in `v1beta2/__tests__/`. Most builder tests verify configuration without a server; `keepalive.ts` also uses an ephemeral loopback gRPC server to exercise real callback and promisified RPCs with deadlines and bounded cleanup. They verify:
 
 - Builder construction and method presence (`typeof client.method === "function"`)
 - Fluent API chaining returns without throwing
 - Credential validation throws on invalid combinations
 - `build()` and `buildAsync()` produce different instances
 - Promisified methods have fewer parameters than callback versions
+- Keepalive options reach the real `Client` constructor, update atomically, and reject invalid runtime values
+- Callback and Promise unary calls send the expected request and return the server response
 
 ## Package Exports
 
