@@ -1,3 +1,10 @@
+/**
+ * WARNING: This example uses ChannelCredentials.createInsecure() for local development only.
+ * DO NOT USE IN PRODUCTION. This disables TLS encryption and certificate validation.
+ * For production, use proper TLS credentials with certificate verification.
+ * See the auth.ts example for secure credential configuration.
+ */
+
 import { KesselInventoryServiceClient } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/inventory_service";
 
 import { SubjectReference } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2/subject_reference";
@@ -6,6 +13,7 @@ import { StreamedListObjectsRequest } from "@project-kessel/kessel-sdk/kessel/in
 import { ChannelCredentials } from "@grpc/grpc-js";
 import "dotenv/config";
 
+// WARNING: createInsecure() disables TLS - local development only
 const stub = new KesselInventoryServiceClient(
   process.env.KESSEL_ENDPOINT!,
   ChannelCredentials.createInsecure(),
