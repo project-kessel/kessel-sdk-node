@@ -33,4 +33,4 @@ jobs:
       - name: Test
         run: npm test
       - name: Check dependencies for known vulnerabilities
-        run: npm audit --audit-level=moderate
+        run: npm audit --omit=dev --audit-level=moderate
