@@ -1,6 +1,9 @@
 version: v2
 inputs:
-  - module: buf.build/project-kessel/inventory-api
+  # Pin direct BSR generation inputs to immutable commit IDs. An unqualified
+  # module reference follows the repository's default label and can move.
+  # See: https://buf.build/docs/configuration/v2/buf-gen-yaml/#module
+  - module: buf.build/project-kessel/inventory-api:b5ed1ffa4c70412e9ea098218286129a
 plugins:
   - remote: buf.build/community/stephenh-ts-proto:v1.178.0
     out: src

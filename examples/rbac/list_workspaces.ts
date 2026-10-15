@@ -1,3 +1,10 @@
+/**
+ * WARNING: This example uses .insecure() for local development only.
+ * DO NOT USE IN PRODUCTION. This disables TLS encryption and certificate validation.
+ * For production, use proper TLS credentials with certificate verification.
+ * See the builder/auth.ts example for secure credential configuration.
+ */
+
 import { ClientBuilder } from "@project-kessel/kessel-sdk/kessel/inventory/v1beta2";
 import { StreamedListObjectsResponse } from "../../src/kessel/inventory/v1beta2/streamed_list_objects_response";
 import { principalSubject, listWorkspaces } from "../../src/kessel/rbac/v2";
@@ -5,6 +12,7 @@ import "dotenv/config";
 
 (async () => {
   try {
+    // WARNING: .insecure() disables TLS - local development only
     const client = new ClientBuilder(process.env.KESSEL_ENDPOINT!)
       .insecure()
       .buildAsync();
