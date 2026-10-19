@@ -288,6 +288,8 @@ describe("keepalive clients over a local gRPC server", () => {
       checkSelfBulk: unexpectedHandler,
       reportResource: unexpectedHandler,
       deleteResource: unexpectedHandler,
+      addResourceRelationships: unexpectedHandler,
+      removeResourceRelationships: unexpectedHandler,
       streamedListObjects: unexpectedHandler,
       streamedListSubjects: unexpectedHandler,
     };
