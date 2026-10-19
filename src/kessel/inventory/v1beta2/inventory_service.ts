@@ -19,6 +19,8 @@ import {
   type ServiceError,
   type UntypedServiceImplementation,
 } from "@grpc/grpc-js";
+import { AddResourceRelationshipsRequest } from "./add_resource_relationships_request";
+import { AddResourceRelationshipsResponse } from "./add_resource_relationships_response";
 import { CheckBulkRequest } from "./check_bulk_request";
 import { CheckBulkResponse } from "./check_bulk_response";
 import { CheckForUpdateBulkRequest } from "./check_for_update_bulk_request";
@@ -33,6 +35,8 @@ import { CheckSelfRequest } from "./check_self_request";
 import { CheckSelfResponse } from "./check_self_response";
 import { DeleteResourceRequest } from "./delete_resource_request";
 import { DeleteResourceResponse } from "./delete_resource_response";
+import { RemoveResourceRelationshipsRequest } from "./remove_resource_relationships_request";
+import { RemoveResourceRelationshipsResponse } from "./remove_resource_relationships_response";
 import { ReportResourceRequest } from "./report_resource_request";
 import { ReportResourceResponse } from "./report_resource_response";
 import { StreamedListObjectsRequest } from "./streamed_list_objects_request";
@@ -307,6 +311,88 @@ export const KesselInventoryServiceDefinition = {
       },
     },
     /**
+     * Adds one or more relationships to an existing *Resource*.
+     *
+     * If the *Resource* does not yet exist for this *Reporter*, it is created with
+     * the provided relationship fields as its initial representation. All other
+     * relationships already reported for that *Resource* are unaffected.
+     *
+     * Unlike `ReportResource`, which asserts the complete state of a *Resource*,
+     * this operation is a targeted mutation: it only touches the specific
+     * relationship fields and values named in the request. Attribute fields,
+     * other relationship fields, and metadata are left exactly as they were.
+     *
+     * Only relationship-typed fields from the *Resource's* schema are accepted;
+     * attribute fields are rejected.
+     *
+     * The relationships added through this API are used to determine relationship
+     * check outcomes via the Check and CheckForUpdate APIs.
+     *
+     * This API does **not** guarantee immediate read-your-writes consistency by default.
+     * If a reporter requires newly added relationships to be visible in subsequent
+     * checks (e.g., `Check`), the request must explicitly set `write_visibility = IMMEDIATE`.
+     */
+    addResourceRelationships: {
+      name: "AddResourceRelationships",
+      requestType: AddResourceRelationshipsRequest,
+      requestStream: false,
+      responseType: AddResourceRelationshipsResponse,
+      responseStream: false,
+      options: {
+        _unknownFields: {
+          578365826: [
+            Buffer.from([
+              48, 58, 1, 42, 34, 43, 47, 97, 112, 105, 47, 107, 101, 115, 115,
+              101, 108, 47, 118, 49, 98, 101, 116, 97, 50, 47, 114, 101, 115,
+              111, 117, 114, 99, 101, 115, 47, 114, 101, 108, 97, 116, 105, 111,
+              110, 115, 104, 105, 112, 115,
+            ]),
+          ],
+        },
+      },
+    },
+    /**
+     * Removes one or more specific relationships from an existing *Resource*.
+     *
+     * All other relationships for the *Resource* are unaffected. If the *Resource*
+     * does not exist, this operation returns `NOT_FOUND` — matching the behaviour
+     * of `DeleteResource`.
+     *
+     * Unlike `ReportResource`, which asserts the complete state of a *Resource*,
+     * this operation is a targeted mutation: it only removes the specific
+     * relationship values named in the request. Attribute fields and other
+     * relationship fields are left exactly as they were.
+     *
+     * Only relationship-typed fields from the *Resource's* schema are accepted;
+     * attribute fields are rejected.
+     *
+     * The relationships removed through this API are used to determine relationship
+     * check outcomes via the Check and CheckForUpdate APIs.
+     *
+     * This API does **not** guarantee immediate read-your-writes consistency by default.
+     * If a reporter requires removed relationships to no longer be visible in subsequent
+     * checks (e.g., `Check`), the request must explicitly set `write_visibility = IMMEDIATE`.
+     */
+    removeResourceRelationships: {
+      name: "RemoveResourceRelationships",
+      requestType: RemoveResourceRelationshipsRequest,
+      requestStream: false,
+      responseType: RemoveResourceRelationshipsResponse,
+      responseStream: false,
+      options: {
+        _unknownFields: {
+          578365826: [
+            Buffer.from([
+              48, 58, 1, 42, 42, 43, 47, 97, 112, 105, 47, 107, 101, 115, 115,
+              101, 108, 47, 118, 49, 98, 101, 116, 97, 50, 47, 114, 101, 115,
+              111, 117, 114, 99, 101, 115, 47, 114, 101, 108, 97, 116, 105, 111,
+              110, 115, 104, 105, 112, 115,
+            ]),
+          ],
+        },
+      },
+    },
+    /**
      * Streams a list of objects where the given subject has the specified relation.
      *
      * This relationship query answers the question:
@@ -559,6 +645,76 @@ export const KesselInventoryServiceService = {
       DeleteResourceResponse.decode(value),
   },
   /**
+   * Adds one or more relationships to an existing *Resource*.
+   *
+   * If the *Resource* does not yet exist for this *Reporter*, it is created with
+   * the provided relationship fields as its initial representation. All other
+   * relationships already reported for that *Resource* are unaffected.
+   *
+   * Unlike `ReportResource`, which asserts the complete state of a *Resource*,
+   * this operation is a targeted mutation: it only touches the specific
+   * relationship fields and values named in the request. Attribute fields,
+   * other relationship fields, and metadata are left exactly as they were.
+   *
+   * Only relationship-typed fields from the *Resource's* schema are accepted;
+   * attribute fields are rejected.
+   *
+   * The relationships added through this API are used to determine relationship
+   * check outcomes via the Check and CheckForUpdate APIs.
+   *
+   * This API does **not** guarantee immediate read-your-writes consistency by default.
+   * If a reporter requires newly added relationships to be visible in subsequent
+   * checks (e.g., `Check`), the request must explicitly set `write_visibility = IMMEDIATE`.
+   */
+  addResourceRelationships: {
+    path: "/kessel.inventory.v1beta2.KesselInventoryService/AddResourceRelationships",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: AddResourceRelationshipsRequest) =>
+      Buffer.from(AddResourceRelationshipsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer) =>
+      AddResourceRelationshipsRequest.decode(value),
+    responseSerialize: (value: AddResourceRelationshipsResponse) =>
+      Buffer.from(AddResourceRelationshipsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer) =>
+      AddResourceRelationshipsResponse.decode(value),
+  },
+  /**
+   * Removes one or more specific relationships from an existing *Resource*.
+   *
+   * All other relationships for the *Resource* are unaffected. If the *Resource*
+   * does not exist, this operation returns `NOT_FOUND` — matching the behaviour
+   * of `DeleteResource`.
+   *
+   * Unlike `ReportResource`, which asserts the complete state of a *Resource*,
+   * this operation is a targeted mutation: it only removes the specific
+   * relationship values named in the request. Attribute fields and other
+   * relationship fields are left exactly as they were.
+   *
+   * Only relationship-typed fields from the *Resource's* schema are accepted;
+   * attribute fields are rejected.
+   *
+   * The relationships removed through this API are used to determine relationship
+   * check outcomes via the Check and CheckForUpdate APIs.
+   *
+   * This API does **not** guarantee immediate read-your-writes consistency by default.
+   * If a reporter requires removed relationships to no longer be visible in subsequent
+   * checks (e.g., `Check`), the request must explicitly set `write_visibility = IMMEDIATE`.
+   */
+  removeResourceRelationships: {
+    path: "/kessel.inventory.v1beta2.KesselInventoryService/RemoveResourceRelationships",
+    requestStream: false,
+    responseStream: false,
+    requestSerialize: (value: RemoveResourceRelationshipsRequest) =>
+      Buffer.from(RemoveResourceRelationshipsRequest.encode(value).finish()),
+    requestDeserialize: (value: Buffer) =>
+      RemoveResourceRelationshipsRequest.decode(value),
+    responseSerialize: (value: RemoveResourceRelationshipsResponse) =>
+      Buffer.from(RemoveResourceRelationshipsResponse.encode(value).finish()),
+    responseDeserialize: (value: Buffer) =>
+      RemoveResourceRelationshipsResponse.decode(value),
+  },
+  /**
    * Streams a list of objects where the given subject has the specified relation.
    *
    * This relationship query answers the question:
@@ -740,6 +896,58 @@ export interface KesselInventoryServiceServer
   deleteResource: handleUnaryCall<
     DeleteResourceRequest,
     DeleteResourceResponse
+  >;
+  /**
+   * Adds one or more relationships to an existing *Resource*.
+   *
+   * If the *Resource* does not yet exist for this *Reporter*, it is created with
+   * the provided relationship fields as its initial representation. All other
+   * relationships already reported for that *Resource* are unaffected.
+   *
+   * Unlike `ReportResource`, which asserts the complete state of a *Resource*,
+   * this operation is a targeted mutation: it only touches the specific
+   * relationship fields and values named in the request. Attribute fields,
+   * other relationship fields, and metadata are left exactly as they were.
+   *
+   * Only relationship-typed fields from the *Resource's* schema are accepted;
+   * attribute fields are rejected.
+   *
+   * The relationships added through this API are used to determine relationship
+   * check outcomes via the Check and CheckForUpdate APIs.
+   *
+   * This API does **not** guarantee immediate read-your-writes consistency by default.
+   * If a reporter requires newly added relationships to be visible in subsequent
+   * checks (e.g., `Check`), the request must explicitly set `write_visibility = IMMEDIATE`.
+   */
+  addResourceRelationships: handleUnaryCall<
+    AddResourceRelationshipsRequest,
+    AddResourceRelationshipsResponse
+  >;
+  /**
+   * Removes one or more specific relationships from an existing *Resource*.
+   *
+   * All other relationships for the *Resource* are unaffected. If the *Resource*
+   * does not exist, this operation returns `NOT_FOUND` — matching the behaviour
+   * of `DeleteResource`.
+   *
+   * Unlike `ReportResource`, which asserts the complete state of a *Resource*,
+   * this operation is a targeted mutation: it only removes the specific
+   * relationship values named in the request. Attribute fields and other
+   * relationship fields are left exactly as they were.
+   *
+   * Only relationship-typed fields from the *Resource's* schema are accepted;
+   * attribute fields are rejected.
+   *
+   * The relationships removed through this API are used to determine relationship
+   * check outcomes via the Check and CheckForUpdate APIs.
+   *
+   * This API does **not** guarantee immediate read-your-writes consistency by default.
+   * If a reporter requires removed relationships to no longer be visible in subsequent
+   * checks (e.g., `Check`), the request must explicitly set `write_visibility = IMMEDIATE`.
+   */
+  removeResourceRelationships: handleUnaryCall<
+    RemoveResourceRelationshipsRequest,
+    RemoveResourceRelationshipsResponse
   >;
   /**
    * Streams a list of objects where the given subject has the specified relation.
@@ -1048,6 +1256,98 @@ export interface KesselInventoryServiceClient extends Client {
     callback: (
       error: ServiceError | null,
       response: DeleteResourceResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  /**
+   * Adds one or more relationships to an existing *Resource*.
+   *
+   * If the *Resource* does not yet exist for this *Reporter*, it is created with
+   * the provided relationship fields as its initial representation. All other
+   * relationships already reported for that *Resource* are unaffected.
+   *
+   * Unlike `ReportResource`, which asserts the complete state of a *Resource*,
+   * this operation is a targeted mutation: it only touches the specific
+   * relationship fields and values named in the request. Attribute fields,
+   * other relationship fields, and metadata are left exactly as they were.
+   *
+   * Only relationship-typed fields from the *Resource's* schema are accepted;
+   * attribute fields are rejected.
+   *
+   * The relationships added through this API are used to determine relationship
+   * check outcomes via the Check and CheckForUpdate APIs.
+   *
+   * This API does **not** guarantee immediate read-your-writes consistency by default.
+   * If a reporter requires newly added relationships to be visible in subsequent
+   * checks (e.g., `Check`), the request must explicitly set `write_visibility = IMMEDIATE`.
+   */
+  addResourceRelationships(
+    request: AddResourceRelationshipsRequest,
+    callback: (
+      error: ServiceError | null,
+      response: AddResourceRelationshipsResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  addResourceRelationships(
+    request: AddResourceRelationshipsRequest,
+    metadata: Metadata,
+    callback: (
+      error: ServiceError | null,
+      response: AddResourceRelationshipsResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  addResourceRelationships(
+    request: AddResourceRelationshipsRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (
+      error: ServiceError | null,
+      response: AddResourceRelationshipsResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  /**
+   * Removes one or more specific relationships from an existing *Resource*.
+   *
+   * All other relationships for the *Resource* are unaffected. If the *Resource*
+   * does not exist, this operation returns `NOT_FOUND` — matching the behaviour
+   * of `DeleteResource`.
+   *
+   * Unlike `ReportResource`, which asserts the complete state of a *Resource*,
+   * this operation is a targeted mutation: it only removes the specific
+   * relationship values named in the request. Attribute fields and other
+   * relationship fields are left exactly as they were.
+   *
+   * Only relationship-typed fields from the *Resource's* schema are accepted;
+   * attribute fields are rejected.
+   *
+   * The relationships removed through this API are used to determine relationship
+   * check outcomes via the Check and CheckForUpdate APIs.
+   *
+   * This API does **not** guarantee immediate read-your-writes consistency by default.
+   * If a reporter requires removed relationships to no longer be visible in subsequent
+   * checks (e.g., `Check`), the request must explicitly set `write_visibility = IMMEDIATE`.
+   */
+  removeResourceRelationships(
+    request: RemoveResourceRelationshipsRequest,
+    callback: (
+      error: ServiceError | null,
+      response: RemoveResourceRelationshipsResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  removeResourceRelationships(
+    request: RemoveResourceRelationshipsRequest,
+    metadata: Metadata,
+    callback: (
+      error: ServiceError | null,
+      response: RemoveResourceRelationshipsResponse,
+    ) => void,
+  ): ClientUnaryCall;
+  removeResourceRelationships(
+    request: RemoveResourceRelationshipsRequest,
+    metadata: Metadata,
+    options: Partial<CallOptions>,
+    callback: (
+      error: ServiceError | null,
+      response: RemoveResourceRelationshipsResponse,
     ) => void,
   ): ClientUnaryCall;
   /**
