@@ -1558,6 +1558,9 @@ export interface FeatureSet {
   defaultSymbolVisibility?:
     | FeatureSet_VisibilityFeature_DefaultSymbolVisibility
     | undefined;
+  enforceProtoLimits?:
+    | FeatureSet_ProtoLimitsFeature_EnforceProtoLimits
+    | undefined;
 }
 
 export enum FeatureSet_FieldPresence {
@@ -1934,6 +1937,61 @@ export function featureSet_VisibilityFeature_DefaultSymbolVisibilityToJSON(
   }
 }
 
+export interface FeatureSet_ProtoLimitsFeature {}
+
+export enum FeatureSet_ProtoLimitsFeature_EnforceProtoLimits {
+  PROTO_LIMITS_UNKNOWN = 0,
+  /**
+   * LEGACY_NO_EXPLICIT_LIMITS - Default pre-EDITION_2026: there are no limit enforcement at the protoc
+   * level. Practical limits still exist, but they will tend to fail while
+   * compiling protoc-generated code, and these limits tend to be language
+   * or toolchain specific.
+   */
+  LEGACY_NO_EXPLICIT_LIMITS = 1,
+  /**
+   * PROTO_LIMITS2026 - A set of limits enforced by Edition 2026 by default. For a detailed
+   * list of all the limits please consult the Edition 2026 documentation.
+   */
+  PROTO_LIMITS2026 = 2,
+  UNRECOGNIZED = -1,
+}
+
+export function featureSet_ProtoLimitsFeature_EnforceProtoLimitsFromJSON(
+  object: any,
+): FeatureSet_ProtoLimitsFeature_EnforceProtoLimits {
+  switch (object) {
+    case 0:
+    case "PROTO_LIMITS_UNKNOWN":
+      return FeatureSet_ProtoLimitsFeature_EnforceProtoLimits.PROTO_LIMITS_UNKNOWN;
+    case 1:
+    case "LEGACY_NO_EXPLICIT_LIMITS":
+      return FeatureSet_ProtoLimitsFeature_EnforceProtoLimits.LEGACY_NO_EXPLICIT_LIMITS;
+    case 2:
+    case "PROTO_LIMITS2026":
+      return FeatureSet_ProtoLimitsFeature_EnforceProtoLimits.PROTO_LIMITS2026;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return FeatureSet_ProtoLimitsFeature_EnforceProtoLimits.UNRECOGNIZED;
+  }
+}
+
+export function featureSet_ProtoLimitsFeature_EnforceProtoLimitsToJSON(
+  object: FeatureSet_ProtoLimitsFeature_EnforceProtoLimits,
+): string {
+  switch (object) {
+    case FeatureSet_ProtoLimitsFeature_EnforceProtoLimits.PROTO_LIMITS_UNKNOWN:
+      return "PROTO_LIMITS_UNKNOWN";
+    case FeatureSet_ProtoLimitsFeature_EnforceProtoLimits.LEGACY_NO_EXPLICIT_LIMITS:
+      return "LEGACY_NO_EXPLICIT_LIMITS";
+    case FeatureSet_ProtoLimitsFeature_EnforceProtoLimits.PROTO_LIMITS2026:
+      return "PROTO_LIMITS2026";
+    case FeatureSet_ProtoLimitsFeature_EnforceProtoLimits.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
+
 /**
  * A compiled specification for the defaults of a set of features.  These
  * messages are generated from FeatureSet extensions and can be used to seed
@@ -2046,6 +2104,23 @@ export interface SourceCodeInfo_Location {
    *   [ 4, 3, 2, 7 ]
    * this path refers to the whole field declaration (from the beginning
    * of the label to the terminating semicolon).
+   *
+   * For options, the path refers to the interpreted option in the descriptor.
+   * E.g., for a custom option `(my_opt) = "foo"` on a message using extension
+   * number 10101, the path is:
+   *   [ 4, 3, 7, 10101 ]
+   * refers to:
+   *   file.message_type(3)     // 4, 3
+   *       .options()           // 7
+   *       .my_opt()            // 10101
+   *
+   * Sub-locations corresponding to the interpreted option's corresponding
+   * `UninterpretedOption` are also appended to the interpreted option, which
+   * deviates from the actual FileDescriptorProto path. E.g.:
+   *   [ 4, 3, 7, 10101, 2 ]
+   * refers to the option name `(my_opt)`, and:
+   *   [ 4, 3, 7, 10101, 7 ]
+   * refers to the "foo" string value of the option.
    */
   path?: number[] | undefined;
   /**
@@ -6855,6 +6930,7 @@ function createBaseFeatureSet(): FeatureSet {
     jsonFormat: 0,
     enforceNamingStyle: 0,
     defaultSymbolVisibility: 0,
+    enforceProtoLimits: 0,
   };
 }
 
@@ -6898,6 +6974,12 @@ export const FeatureSet = {
       message.defaultSymbolVisibility !== 0
     ) {
       writer.uint32(64).int32(message.defaultSymbolVisibility);
+    }
+    if (
+      message.enforceProtoLimits !== undefined &&
+      message.enforceProtoLimits !== 0
+    ) {
+      writer.uint32(72).int32(message.enforceProtoLimits);
     }
     return writer;
   },
@@ -6966,6 +7048,13 @@ export const FeatureSet = {
 
           message.defaultSymbolVisibility = reader.int32() as any;
           continue;
+        case 9:
+          if (tag !== 72) {
+            break;
+          }
+
+          message.enforceProtoLimits = reader.int32() as any;
+          continue;
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -7001,6 +7090,11 @@ export const FeatureSet = {
       defaultSymbolVisibility: isSet(object.defaultSymbolVisibility)
         ? featureSet_VisibilityFeature_DefaultSymbolVisibilityFromJSON(
             object.defaultSymbolVisibility,
+          )
+        : 0,
+      enforceProtoLimits: isSet(object.enforceProtoLimits)
+        ? featureSet_ProtoLimitsFeature_EnforceProtoLimitsFromJSON(
+            object.enforceProtoLimits,
           )
         : 0,
     };
@@ -7055,6 +7149,15 @@ export const FeatureSet = {
           message.defaultSymbolVisibility,
         );
     }
+    if (
+      message.enforceProtoLimits !== undefined &&
+      message.enforceProtoLimits !== 0
+    ) {
+      obj.enforceProtoLimits =
+        featureSet_ProtoLimitsFeature_EnforceProtoLimitsToJSON(
+          message.enforceProtoLimits,
+        );
+    }
     return obj;
   },
 
@@ -7073,6 +7176,7 @@ export const FeatureSet = {
     message.jsonFormat = object.jsonFormat ?? 0;
     message.enforceNamingStyle = object.enforceNamingStyle ?? 0;
     message.defaultSymbolVisibility = object.defaultSymbolVisibility ?? 0;
+    message.enforceProtoLimits = object.enforceProtoLimits ?? 0;
     return message;
   },
 };
@@ -7127,6 +7231,60 @@ export const FeatureSet_VisibilityFeature = {
     _: I,
   ): FeatureSet_VisibilityFeature {
     const message = createBaseFeatureSet_VisibilityFeature();
+    return message;
+  },
+};
+
+function createBaseFeatureSet_ProtoLimitsFeature(): FeatureSet_ProtoLimitsFeature {
+  return {};
+}
+
+export const FeatureSet_ProtoLimitsFeature = {
+  encode(
+    _: FeatureSet_ProtoLimitsFeature,
+    writer: _m0.Writer = _m0.Writer.create(),
+  ): _m0.Writer {
+    return writer;
+  },
+
+  decode(
+    input: _m0.Reader | Uint8Array,
+    length?: number,
+  ): FeatureSet_ProtoLimitsFeature {
+    const reader =
+      input instanceof _m0.Reader ? input : _m0.Reader.create(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFeatureSet_ProtoLimitsFeature();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skipType(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(_: any): FeatureSet_ProtoLimitsFeature {
+    return {};
+  },
+
+  toJSON(_: FeatureSet_ProtoLimitsFeature): unknown {
+    const obj: any = {};
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FeatureSet_ProtoLimitsFeature>, I>>(
+    base?: I,
+  ): FeatureSet_ProtoLimitsFeature {
+    return FeatureSet_ProtoLimitsFeature.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FeatureSet_ProtoLimitsFeature>, I>>(
+    _: I,
+  ): FeatureSet_ProtoLimitsFeature {
+    const message = createBaseFeatureSet_ProtoLimitsFeature();
     return message;
   },
 };
