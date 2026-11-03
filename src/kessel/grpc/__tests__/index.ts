@@ -30,9 +30,11 @@ describe("oauth2CallCredentials", () => {
 
     const callCredentials = oauth2CallCredentials(oauth2Creds);
 
-    // Test that the credentials can generate metadata
-    expect(callCredentials).toBeDefined();
-    expect(typeof callCredentials).toBe("object");
+    const metadata = await callCredentials.generateMetadata({
+      service_url: "https://test.example.com",
+      method_name: "TestMethod",
+    });
+    expect(metadata.get("Authorization")).toEqual(["Bearer test-token"]);
   });
 
   it("handles token refresh in metadata generator", async () => {
@@ -149,6 +151,46 @@ describe("oauth2CallCredentials", () => {
 
       // The credentials object should still be created, errors happen during usage
       expect(callCredentials).toBeDefined();
+    });
+
+    it("invokes callback with error when getToken rejects", async () => {
+      const oauth2Creds = new OAuth2ClientCredentials({
+        clientId: "test-client",
+        clientSecret: "test-secret",
+        tokenEndpoint: "https://example.com/token",
+      });
+
+      jest
+        .spyOn(oauth2Creds, "getToken")
+        .mockRejectedValue(new Error("Token fetch failed"));
+
+      const callCredentials = oauth2CallCredentials(oauth2Creds);
+
+      await expect(
+        callCredentials.generateMetadata({
+          service_url: "https://test.example.com",
+          method_name: "TestMethod",
+        }),
+      ).rejects.toThrow("Token fetch failed");
+    });
+
+    it("wraps non-Error rejection values in an Error", async () => {
+      const oauth2Creds = new OAuth2ClientCredentials({
+        clientId: "test-client",
+        clientSecret: "test-secret",
+        tokenEndpoint: "https://example.com/token",
+      });
+
+      jest.spyOn(oauth2Creds, "getToken").mockRejectedValue("string rejection");
+
+      const callCredentials = oauth2CallCredentials(oauth2Creds);
+
+      await expect(
+        callCredentials.generateMetadata({
+          service_url: "https://test.example.com",
+          method_name: "TestMethod",
+        }),
+      ).rejects.toThrow("string rejection");
     });
   });
 
