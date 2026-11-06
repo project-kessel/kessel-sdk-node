@@ -32,5 +32,9 @@ jobs:
         run: npm run build
       - name: Test
         run: npm test
-      - name: Check dependencies for known vulnerabilities
-        run: npm audit --omit=dev --audit-level=moderate
+
+  security-audit:
+    name: Security Audit
+    permissions:
+      contents: read
+    uses: ./.github/workflows/security-audit.yml
