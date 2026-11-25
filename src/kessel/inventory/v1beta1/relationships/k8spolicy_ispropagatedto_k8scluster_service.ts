@@ -26,8 +26,7 @@ export const protobufPackage = "kessel.inventory.v1beta1.relationships";
 export interface CreateK8SPolicyIsPropagatedToK8SClusterRequest {
   /** The resource relationship to create in Kessel Asset Inventory */
   k8spolicyIspropagatedtoK8scluster?:
-    | K8SPolicyIsPropagatedToK8SCluster
-    | undefined;
+    K8SPolicyIsPropagatedToK8SCluster | undefined;
 }
 
 export interface CreateK8SPolicyIsPropagatedToK8SClusterResponse {}
@@ -40,8 +39,7 @@ export interface UpdateK8SPolicyIsPropagatedToK8SClusterRequest {
    * from the request body.
    */
   k8spolicyIspropagatedtoK8scluster?:
-    | K8SPolicyIsPropagatedToK8SCluster
-    | undefined;
+    K8SPolicyIsPropagatedToK8SCluster | undefined;
 }
 
 export interface UpdateK8SPolicyIsPropagatedToK8SClusterResponse {}
@@ -662,8 +660,7 @@ export const KesselK8SPolicyIsPropagatedToK8SClusterServiceService = {
   },
 } as const;
 
-export interface KesselK8SPolicyIsPropagatedToK8SClusterServiceServer
-  extends UntypedServiceImplementation {
+export interface KesselK8SPolicyIsPropagatedToK8SClusterServiceServer extends UntypedServiceImplementation {
   createK8SPolicyIsPropagatedToK8SCluster: handleUnaryCall<
     CreateK8SPolicyIsPropagatedToK8SClusterRequest,
     CreateK8SPolicyIsPropagatedToK8SClusterResponse
@@ -678,8 +675,7 @@ export interface KesselK8SPolicyIsPropagatedToK8SClusterServiceServer
   >;
 }
 
-export interface KesselK8SPolicyIsPropagatedToK8SClusterServiceClient
-  extends Client {
+export interface KesselK8SPolicyIsPropagatedToK8SClusterServiceClient extends Client {
   createK8SPolicyIsPropagatedToK8SCluster(
     request: CreateK8SPolicyIsPropagatedToK8SClusterRequest,
     callback: (
@@ -769,13 +765,7 @@ export const KesselK8SPolicyIsPropagatedToK8SClusterServiceClient =
   };
 
 type Builtin =
-  | Date
-  | Function
-  | Uint8Array
-  | string
-  | number
-  | boolean
-  | undefined;
+  Date | Function | Uint8Array | string | number | boolean | undefined;
 
 export type DeepPartial<T> = T extends Builtin
   ? T

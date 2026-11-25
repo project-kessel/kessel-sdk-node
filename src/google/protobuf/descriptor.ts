@@ -1556,8 +1556,7 @@ export interface FeatureSet {
   jsonFormat?: FeatureSet_JsonFormat | undefined;
   enforceNamingStyle?: FeatureSet_EnforceNamingStyle | undefined;
   defaultSymbolVisibility?:
-    | FeatureSet_VisibilityFeature_DefaultSymbolVisibility
-    | undefined;
+    FeatureSet_VisibilityFeature_DefaultSymbolVisibility | undefined;
 }
 
 export enum FeatureSet_FieldPresence {
@@ -7897,13 +7896,7 @@ function base64FromBytes(arr: Uint8Array): string {
 }
 
 type Builtin =
-  | Date
-  | Function
-  | Uint8Array
-  | string
-  | number
-  | boolean
-  | undefined;
+  Date | Function | Uint8Array | string | number | boolean | undefined;
 
 export type DeepPartial<T> = T extends Builtin
   ? T
