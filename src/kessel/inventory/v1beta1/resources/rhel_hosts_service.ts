@@ -544,8 +544,7 @@ export const KesselRhelHostServiceService = {
   },
 } as const;
 
-export interface KesselRhelHostServiceServer
-  extends UntypedServiceImplementation {
+export interface KesselRhelHostServiceServer extends UntypedServiceImplementation {
   createRhelHost: handleUnaryCall<
     CreateRhelHostRequest,
     CreateRhelHostResponse
@@ -649,13 +648,7 @@ export const KesselRhelHostServiceClient = makeGenericClientConstructor(
 };
 
 type Builtin =
-  | Date
-  | Function
-  | Uint8Array
-  | string
-  | number
-  | boolean
-  | undefined;
+  Date | Function | Uint8Array | string | number | boolean | undefined;
 
 export type DeepPartial<T> = T extends Builtin
   ? T

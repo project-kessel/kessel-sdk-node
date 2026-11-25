@@ -549,8 +549,7 @@ export const KesselK8sPolicyServiceService = {
   },
 } as const;
 
-export interface KesselK8sPolicyServiceServer
-  extends UntypedServiceImplementation {
+export interface KesselK8sPolicyServiceServer extends UntypedServiceImplementation {
   createK8SPolicy: handleUnaryCall<
     CreateK8sPolicyRequest,
     CreateK8sPolicyResponse
@@ -654,13 +653,7 @@ export const KesselK8sPolicyServiceClient = makeGenericClientConstructor(
 };
 
 type Builtin =
-  | Date
-  | Function
-  | Uint8Array
-  | string
-  | number
-  | boolean
-  | undefined;
+  Date | Function | Uint8Array | string | number | boolean | undefined;
 
 export type DeepPartial<T> = T extends Builtin
   ? T

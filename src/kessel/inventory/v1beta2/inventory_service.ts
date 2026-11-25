@@ -766,8 +766,7 @@ export const KesselInventoryServiceService = {
   },
 } as const;
 
-export interface KesselInventoryServiceServer
-  extends UntypedServiceImplementation {
+export interface KesselInventoryServiceServer extends UntypedServiceImplementation {
   /**
    * Performs an relationship check to determine whether a subject has a specific
    * permission or relationship on a resource.

@@ -1067,8 +1067,7 @@ export const KesselNotificationsIntegrationServiceService = {
   },
 } as const;
 
-export interface KesselNotificationsIntegrationServiceServer
-  extends UntypedServiceImplementation {
+export interface KesselNotificationsIntegrationServiceServer extends UntypedServiceImplementation {
   createNotificationsIntegration: handleUnaryCall<
     CreateNotificationsIntegrationRequest,
     CreateNotificationsIntegrationResponse
@@ -1220,13 +1219,7 @@ export const KesselNotificationsIntegrationServiceClient =
   };
 
 type Builtin =
-  | Date
-  | Function
-  | Uint8Array
-  | string
-  | number
-  | boolean
-  | undefined;
+  Date | Function | Uint8Array | string | number | boolean | undefined;
 
 export type DeepPartial<T> = T extends Builtin
   ? T

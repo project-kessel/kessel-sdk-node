@@ -371,8 +371,7 @@ export const KesselInventoryHealthServiceService = {
   },
 } as const;
 
-export interface KesselInventoryHealthServiceServer
-  extends UntypedServiceImplementation {
+export interface KesselInventoryHealthServiceServer extends UntypedServiceImplementation {
   getLivez: handleUnaryCall<GetLivezRequest, GetLivezResponse>;
   getReadyz: handleUnaryCall<GetReadyzRequest, GetReadyzResponse>;
 }
@@ -424,13 +423,7 @@ export const KesselInventoryHealthServiceClient = makeGenericClientConstructor(
 };
 
 type Builtin =
-  | Date
-  | Function
-  | Uint8Array
-  | string
-  | number
-  | boolean
-  | undefined;
+  Date | Function | Uint8Array | string | number | boolean | undefined;
 
 export type DeepPartial<T> = T extends Builtin
   ? T
